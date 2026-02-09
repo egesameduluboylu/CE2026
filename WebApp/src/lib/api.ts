@@ -12,6 +12,15 @@ export function setAccessToken(token: string | null): void {
   (window as unknown as WindowToken).__accessToken = token;
 }
 
+function getTenantId(): string | null {
+  try {
+    const raw = window.localStorage.getItem("tenantId");
+    return raw && raw.trim() ? raw.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
 export type ApiFetchOptions = RequestInit & {
   successCode?: string; // i18n key: "users.created" vs
   success?: boolean;    // true ise default mesaj
@@ -25,28 +34,45 @@ import { getCulture } from "../i18n"; // <-- yolunu düzelt
  * - Aynı anda 10 istek 401 yerse 10 kere refresh atmasın
  * - 1 refresh çalışsın, diğerleri onu beklesin
  */
-let refreshPromise: Promise<string | null> | null = null;
+let refreshPromise: Promise<RefreshOutcome> | null = null;
 
-async function refreshToken(): Promise<string | null> {
+type RefreshOutcome = { token: string | null; shouldLogout: boolean };
+
+async function refreshToken(): Promise<RefreshOutcome> {
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {
-    const res = await fetch(`${API_BASE}/auth/refresh`, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        Accept: "application/json",
-        "Accept-Language": getCulture(), // ✅ eklendi
-      },
-    });
+    try {
+      const res = await fetch(`${API_BASE}/auth/refresh`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+          "Accept-Language": getCulture(), // ✅ eklendi
+        },
+      });
 
-    if (!res.ok) return null;
+      if (!res.ok) {
+        return { token: null, shouldLogout: res.status === 401 || res.status === 403 };
+      }
 
-    const json = (await res.json()) as ApiResponse<{ accessToken: string }>;
-    const token = json?.data?.accessToken ?? null;
+      const json = (await res.json()) as ApiResponse<{ accessToken: string }>;
+      const token = json?.data?.accessToken ?? null;
 
-    if (token) setAccessToken(token);
-    return token;
+      if (token) setAccessToken(token);
+      return { token, shouldLogout: false };
+    } catch {
+      window.dispatchEvent(
+        new CustomEvent("api:error", {
+          detail: {
+            code: "common.unexpected_error",
+            status: 0,
+          },
+        })
+      );
+
+      return { token: null, shouldLogout: false };
+    }
   })();
 
   try {
@@ -95,6 +121,9 @@ export async function apiFetch<T>(
     ...options.headers,
   };
 
+  const tenantId = getTenantId();
+  if (tenantId) (headers as Record<string, string>)["X-Tenant-Id"] = tenantId;
+
   if (token) (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
 
   let res = await fetch(`${API_BASE}${path}`, {
@@ -104,17 +133,17 @@ export async function apiFetch<T>(
   });
 
   // 401 -> refresh -> retry (tek sefer)
-  if (res.status === 401 && !retried) {
-    const newToken = await refreshToken();
+  if (res.status === 401 && !retried && path !== "/auth/refresh") {
+    const outcome = await refreshToken();
 
-    if (newToken) {
-      (headers as Record<string, string>)["Authorization"] = `Bearer ${newToken}`;
+    if (outcome.token) {
+      (headers as Record<string, string>)["Authorization"] = `Bearer ${outcome.token}`;
       res = await fetch(`${API_BASE}${path}`, {
         ...options,
         credentials: "include",
         headers,
       });
-    } else {
+    } else if (outcome.shouldLogout) {
       setAccessToken(null);
       window.dispatchEvent(new CustomEvent("auth:logout"));
     }

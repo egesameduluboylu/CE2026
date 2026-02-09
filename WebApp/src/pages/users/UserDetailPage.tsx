@@ -5,6 +5,8 @@ import { Page } from "@/shared/components/Page";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { usePermission } from "@/shared/auth/usePermission";
+import { PermissionGuard } from "@/shared/auth/PermissionGuard";
+import { Shield } from "lucide-react";
 
 type UserDetail = {
   id: string;
@@ -46,9 +48,19 @@ export function UserDetailPage() {
   if (!canReadUsers) {
     return (
       <Page title="User" description="—" actions={
-        <Button variant="outline" asChild>
-          <Link to="/">Back</Link>
-        </Button>
+        <div className="flex gap-2">
+          <PermissionGuard permission="roles.read">
+            <Button variant="outline" asChild>
+              <Link to={`/users/${id}/roles`}>
+                <Shield className="w-4 h-4 mr-1" />
+                Manage Roles
+              </Link>
+            </Button>
+          </PermissionGuard>
+          <Button variant="outline" asChild>
+            <Link to="/">Back</Link>
+          </Button>
+        </div>
       }>
         <div className="rounded-xl border p-3 text-sm text-muted-foreground">
           You are not allowed to view this page.
@@ -105,6 +117,14 @@ export function UserDetailPage() {
       description={u?.email ?? "—"}
       actions={
         <div className="flex gap-2">
+          <PermissionGuard permission="roles.read">
+            <Button variant="outline" asChild>
+              <Link to={`/users/${id}/roles`}>
+                <Shield className="w-4 h-4 mr-1" />
+                Manage Roles
+              </Link>
+            </Button>
+          </PermissionGuard>
           <Button variant="outline" asChild>
             <Link to="/users">Back</Link>
           </Button>

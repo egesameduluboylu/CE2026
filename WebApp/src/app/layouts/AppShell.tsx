@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { cn } from "@/shared/lib/cn";
 import { ThemeToggle } from "@/shared/theme/ThemeToggle";
@@ -5,6 +6,7 @@ import { ThemeToggle } from "@/shared/theme/ThemeToggle";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -22,6 +24,7 @@ import {
   User as UserIcon,
   ChevronDown,
   Shield, // ✅ eklendi
+  Building2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "react-i18next";
@@ -40,6 +43,15 @@ export function AppShell() {
 
   const canUsersRead = usePermission("users.read");
   const canRolesRead = usePermission("roles.read"); // ✅ eklendi
+  const canTenantsRead = usePermission("tenants.read");
+  const canBillingRead = usePermission("billing.read");
+  const canFlagsRead = usePermission("flags.read");
+  const canAuditRead = usePermission("audit.read");
+  const canSessionsRead = usePermission("sessions.read");
+  const canApiKeysRead = usePermission("api_keys.read");
+  const canWebhooksRead = usePermission("webhooks.read");
+  const canHealthRead = usePermission("health.read");
+  const canRateLimitRead = usePermission("rate_limit.read");
 
   const nav: NavItem[] = [
     { to: "/", label: t("nav.dashboard"), icon: LayoutDashboard, end: true },
@@ -50,7 +62,44 @@ export function AppShell() {
 
     // ✅ admin/izinli: Roles & Permissions ekranı
     ...(canRolesRead
-      ? [{ to: "/roles", label: t("nav.roles") ?? "Roles", icon: Shield, end: false } as NavItem]
+      ? [
+          { to: "/roles", label: t("nav.roles") ?? "Roles", icon: Shield, end: false } as NavItem,
+        ]
+      : []),
+
+    ...(canTenantsRead
+      ? [{ to: "/tenants", label: t("nav.tenants") ?? "Tenants", icon: Building2, end: false } as NavItem]
+      : []),
+    ...(canRateLimitRead
+      ? [{ to: "/rate-limit", label: "Rate Limit", icon: Shield, end: false } as NavItem]
+      : []),
+
+    ...(canBillingRead
+      ? [{ to: "/plans", label: t("nav.plans") ?? "Plans", icon: Shield, end: false } as NavItem]
+      : []),
+
+    ...(canFlagsRead
+      ? [{ to: "/feature-flags", label: t("nav.flags") ?? "Feature Flags", icon: Shield, end: false } as NavItem]
+      : []),
+
+    ...(canAuditRead
+      ? [{ to: "/audit", label: t("nav.audit") ?? "Audit", icon: Shield, end: false } as NavItem]
+      : []),
+
+    ...(canSessionsRead
+      ? [{ to: "/sessions", label: t("nav.sessions") ?? "Sessions", icon: Shield, end: false } as NavItem]
+      : []),
+
+    ...(canApiKeysRead
+      ? [{ to: "/api-keys", label: t("nav.api_keys") ?? "API Keys", icon: Shield, end: false } as NavItem]
+      : []),
+
+    ...(canWebhooksRead
+      ? [{ to: "/webhooks", label: t("nav.webhooks") ?? "Webhooks", icon: Shield, end: false } as NavItem]
+      : []),
+
+    ...(canHealthRead
+      ? [{ to: "/health", label: t("nav.health") ?? "Health", icon: Shield, end: false } as NavItem]
       : []),
   ];
 
@@ -89,6 +138,7 @@ export function AppShell() {
             </div>
 
             <div className="flex items-center gap-1">
+              {canTenantsRead ? <TenantSwitcher /> : null}
               <ThemeToggle />
               <LanguageMenu />
               <UserMenu />
@@ -101,6 +151,70 @@ export function AppShell() {
         </main>
       </div>
     </div>
+  );
+}
+
+function TenantSwitcher() {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState<string>(() => {
+    try {
+      return window.localStorage.getItem("tenantId") ?? "";
+    } catch {
+      return "";
+    }
+  });
+
+  const apply = () => {
+    try {
+      const v = value.trim();
+      if (v) window.localStorage.setItem("tenantId", v);
+      else window.localStorage.removeItem("tenantId");
+    } catch {
+    }
+    setOpen(false);
+  };
+
+  const clear = () => {
+    try {
+      window.localStorage.removeItem("tenantId");
+    } catch {
+    }
+    setValue("");
+  };
+
+  const current = value.trim();
+
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" className="h-9 rounded-xl px-2 gap-2">
+          <Building2 className="h-4 w-4 text-muted-foreground" />
+          <span className="hidden sm:inline text-sm">
+            {current ? current.slice(0, 8) + "…" : "Tenant"}
+          </span>
+          <ChevronDown className="hidden sm:block h-4 w-4 text-muted-foreground" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" sideOffset={8} className="w-72 p-2">
+        <div className="space-y-2">
+          <div className="text-xs text-muted-foreground">X-Tenant-Id</div>
+          <Input
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="Tenant GUID…"
+            className="h-9"
+          />
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={apply}>
+              Apply
+            </Button>
+            <Button size="sm" variant="outline" onClick={clear}>
+              Clear
+            </Button>
+          </div>
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

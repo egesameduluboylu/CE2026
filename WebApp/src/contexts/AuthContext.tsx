@@ -122,7 +122,11 @@ useEffect(() => {
   // - storage token varsa yükle (opsiyonel)
   // - her durumda refresh dene (cookie ile)
   // - sonra me çek
+  const bootOnceRef = useRef(false);
   useEffect(() => {
+    if (bootOnceRef.current) return;
+    bootOnceRef.current = true;
+
     let alive = true;
 
     const boot = async () => {

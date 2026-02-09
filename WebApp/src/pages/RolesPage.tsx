@@ -1,108 +1,297 @@
-import { useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
-import { getApi, postApi } from "@/lib/api";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getApi, postApi, putApi, deleteApi } from "@/lib/api";
 import { Page } from "@/shared/components/Page";
+import { PermissionGuard } from "@/shared/auth/PermissionGuard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PermissionGuard } from "@/shared/auth/PermissionGuard";
-import { usePermission } from "@/shared/auth/usePermission";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import { Settings, Trash2, Plus, Edit, Shield } from "lucide-react";
 
-type RoleListItem = { id: string; name: string };
+type Role = { id: string; name: string };
+type Permission = { key: string; description: string };
+type RoleDetail = Role & { permissions: string[] };
+
+type CreateRoleDto = { name: string };
+type UpdateRoleDto = { name: string };
+type UpdatePermissionsDto = { permissions: string[] };
 
 export function RolesPage() {
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [permissionsOpen, setPermissionsOpen] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<RoleDetail | null>(null);
+  const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
+
   const qc = useQueryClient();
-  const canWrite = usePermission("roles.write");
 
-  const [name, setName] = useState("");
-
-  const q = useQuery({
+  const rolesQ = useQuery({
     queryKey: ["admin", "roles"],
     queryFn: async () => {
-      const r = await getApi<RoleListItem[]>("/admin/roles");
-      return r.data as RoleListItem[];
+      const r = await getApi<Role[]>("/admin/roles");
+      return r.data as Role[];
     },
+  });
+
+  const permissionsQ = useQuery({
+    queryKey: ["admin", "roles", "permissions"],
+    queryFn: async () => {
+      const r = await getApi<Permission[]>("/admin/roles/permissions");
+      return r.data as Permission[];
+    },
+  });
+
+  const roleDetailQ = useQuery({
+    queryKey: ["admin", "roles", selectedRole?.id],
+    queryFn: async () => {
+      if (!selectedRole) return null;
+      const r = await getApi<RoleDetail>(`/admin/roles/${selectedRole.id}`);
+      return r.data as RoleDetail;
+    },
+    enabled: !!selectedRole,
   });
 
   const createMut = useMutation({
-    mutationFn: async () =>
-      postApi<RoleListItem>("/admin/roles", { name: name.trim() }),
-    onSuccess: async () => {
-      setName("");
-      await qc.invalidateQueries({ queryKey: ["admin", "roles"] });
+    mutationFn: async (dto: CreateRoleDto) => {
+      await postApi("/admin/roles", dto);
     },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "roles"] });
+      toast.success("Role created");
+      setCreateOpen(false);
+    },
+    onError: () => toast.error("Failed to create role"),
   });
 
-  const items = useMemo(() => q.data ?? [], [q.data]);
+  const updateMut = useMutation({
+    mutationFn: async ({ id, dto }: { id: string; dto: UpdateRoleDto }) => {
+      await putApi(`/admin/roles/${id}`, dto);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "roles"] });
+      toast.success("Role updated");
+      setEditOpen(false);
+      setSelectedRole(null);
+    },
+    onError: () => toast.error("Failed to update role"),
+  });
+
+  const setPermissionsMut = useMutation({
+    mutationFn: async ({ id, dto }: { id: string; dto: UpdatePermissionsDto }) => {
+      await putApi(`/admin/roles/${id}/permissions`, dto);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "roles"] });
+      qc.invalidateQueries({ queryKey: ["admin", "roles", selectedRole?.id] });
+      toast.success("Permissions updated");
+      setPermissionsOpen(false);
+      setSelectedRole(null);
+    },
+    onError: () => toast.error("Failed to update permissions"),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: async (id: string) => {
+      await deleteApi(`/admin/roles/${id}`);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "roles"] });
+      toast.success("Role deleted");
+    },
+    onError: () => toast.error("Failed to delete role"),
+  });
+
+  const handleEdit = (role: Role) => {
+    setSelectedRole({ ...role, permissions: [] });
+    setEditOpen(true);
+  };
+
+  const handlePermissions = async (role: Role) => {
+    setSelectedRole({ ...role, permissions: [] });
+    const detail = await getApi<RoleDetail>(`/admin/roles/${role.id}`);
+    setSelectedRole(detail.data as RoleDetail);
+    setSelectedPermissions((detail.data as RoleDetail).permissions);
+    setPermissionsOpen(true);
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm("Delete this role? Users assigned to this role will lose these permissions.")) {
+      deleteMut.mutate(id);
+    }
+  };
 
   return (
     <PermissionGuard permission="roles.read">
       <Page
         title="Roles"
-        description="Define roles and manage permissions"
+        description="Manage roles and their permissions"
         actions={
-          canWrite ? (
-            <div className="flex items-center gap-2">
-              <Input
-                className="w-[240px]"
-                placeholder="New role name…"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-              <Button
-                disabled={!name.trim() || createMut.isPending}
-                onClick={() => createMut.mutate()}
-              >
-                {createMut.isPending ? "Creating…" : "Create"}
-              </Button>
-            </div>
-          ) : null
+          <PermissionGuard permission="roles.write">
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus className="w-4 h-4 mr-1" />
+              Create Role
+            </Button>
+          </PermissionGuard>
         }
       >
-        {q.isLoading && (
-          <div className="text-sm text-muted-foreground">Loading…</div>
-        )}
+        {rolesQ.isLoading && <div className="text-sm text-muted-foreground">Loading…</div>}
+        {rolesQ.isError && <div className="text-sm text-destructive">Error loading roles</div>}
 
-        {q.isError && (
-          <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-            {q.error instanceof Error ? q.error.message : String(q.error)}
-          </div>
-        )}
-
-        {!q.isLoading && !q.isError && (
-          <div className="rounded-2xl border overflow-hidden">
+        {!rolesQ.isLoading && !rolesQ.isError && (
+          <div className="rounded-xl border overflow-hidden">
             <div className="divide-y">
-              {items.length ? (
-                items.map((r) => (
-                  <div key={r.id} className="flex items-center justify-between p-4">
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium truncate">{r.name}</div>
-                      <div className="text-xs text-muted-foreground truncate">
-                        {r.id}
-                      </div>
-                    </div>
-
-                    <Button variant="outline" size="sm" asChild>
-                      <Link to={`/roles/${r.id}`}>Manage</Link>
-                    </Button>
+              {rolesQ.data?.map((role) => (
+                <div key={role.id} className="p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Shield className="w-5 h-5 text-muted-foreground" />
+                    <span className="font-medium">{role.name}</span>
                   </div>
-                ))
-              ) : (
-                <div className="p-6 text-sm text-muted-foreground">
-                  No roles yet.
+                  <div className="flex items-center gap-2">
+                    <PermissionGuard permission="roles.read">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePermissions(role)}
+                        disabled={roleDetailQ.isLoading}
+                      >
+                        <Settings className="w-4 h-4 mr-1" />
+                        Permissions
+                      </Button>
+                    </PermissionGuard>
+                    <PermissionGuard permission="roles.write">
+                      <Button variant="outline" size="sm" onClick={() => handleEdit(role)}>
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => handleDelete(role.id)}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </PermissionGuard>
+                  </div>
                 </div>
-              )}
+              ))}
             </div>
           </div>
         )}
 
-        {createMut.isError && (
-          <div className="mt-3 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-            {createMut.error instanceof Error
-              ? createMut.error.message
-              : String(createMut.error)}
-          </div>
-        )}
+        {/* Create Role Dialog */}
+        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create Role</DialogTitle>
+            </DialogHeader>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const fd = new FormData(e.currentTarget);
+                createMut.mutate({ name: fd.get("name") as string });
+              }}
+            >
+              <Label htmlFor="name">Name</Label>
+              <Input id="name" name="name" required autoFocus />
+              <DialogFooter className="mt-4">
+                <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={createMut.isPending}>
+                  Create
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Role Dialog */}
+        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Rename Role</DialogTitle>
+            </DialogHeader>
+            {selectedRole && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const fd = new FormData(e.currentTarget);
+                  updateMut.mutate({
+                    id: selectedRole.id,
+                    dto: { name: fd.get("name") as string },
+                  });
+                }}
+              >
+                <Label htmlFor="edit-name">Name</Label>
+                <Input id="edit-name" name="name" defaultValue={selectedRole.name} required autoFocus />
+                <DialogFooter className="mt-4">
+                  <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={updateMut.isPending}>
+                    Save
+                  </Button>
+                </DialogFooter>
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Permissions Dialog */}
+        <Dialog open={permissionsOpen} onOpenChange={setPermissionsOpen}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Permissions for {selectedRole?.name}</DialogTitle>
+            </DialogHeader>
+            {permissionsQ.data && selectedRole && (
+              <div className="space-y-2">
+                {permissionsQ.data.map((p) => (
+                  <div key={p.key} className="flex items-start space-x-2">
+                    <Checkbox
+                      id={p.key}
+                      checked={selectedPermissions.includes(p.key)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedPermissions([...selectedPermissions, p.key]);
+                        } else {
+                          setSelectedPermissions(selectedPermissions.filter((x) => x !== p.key));
+                        }
+                      }}
+                    />
+                    <div className="grid gap-1.5 leading-none">
+                      <Label htmlFor={p.key} className="font-medium">
+                        {p.key}
+                      </Label>
+                      <p className="text-sm text-muted-foreground">{p.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <DialogFooter className="mt-4">
+              <Button variant="outline" onClick={() => setPermissionsOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                disabled={setPermissionsMut.isPending}
+                onClick={() => {
+                  if (selectedRole) {
+                    setPermissionsMut.mutate({
+                      id: selectedRole.id,
+                      dto: { permissions: selectedPermissions },
+                    });
+                  }
+                }}
+              >
+                Save
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </Page>
     </PermissionGuard>
   );

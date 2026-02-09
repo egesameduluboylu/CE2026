@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { getApi } from '@/lib/api';
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { getApi } from "@/lib/api";
+import { Page } from "@/shared/components/Page";
+import { PermissionGuard } from "@/shared/auth/PermissionGuard";
 
 type EventItem = {
   id: number;
@@ -29,14 +31,17 @@ export function SecurityEvents() {
     },
   });
 
-  if (isLoading) return <p className="text-zinc-500">Loading…</p>;
-  if (error) return <p className="text-red-600">{String(error)}</p>;
-
   const totalPages = data ? Math.ceil(data.total / pageSize) : 0;
 
   return (
-    <div>
-      <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100 mb-4">Security events</h1>
+    <PermissionGuard permission="audit.read">
+      <Page title="Security events" description="Raw security event feed">
+        {isLoading && <div className="text-sm text-muted-foreground">Loading…</div>}
+        {error && (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+            {String(error)}
+          </div>
+        )}
       <div className="mb-4 flex gap-4 items-center">
         <select
           value={type}
@@ -99,6 +104,7 @@ export function SecurityEvents() {
           </button>
         </div>
       )}
-    </div>
+      </Page>
+    </PermissionGuard>
   );
 }
