@@ -1,25 +1,28 @@
-﻿using Modules.Identity.Contracts.Auth;
-using Modules.Identity.Infrastructure.Auth;
-using System;
-using System.Collections.Generic;
-using System.Text;
+
+using Modules.Identity.Contracts.Auth;
 
 namespace Modules.Identity.Application.Auth
 {
     public interface IAuthService
     {
-        Task<RegisterResponse> RegisterAsync(RegisterRequest req, CancellationToken ct = default);
-        Task<LoginResult> LoginAsync(LoginRequest req, CancellationToken ct = default);
+        Task<RegisterResponse> RegisterAsync(
+            RegisterRequest req,
+            AuthAuditContext audit,
+            CancellationToken ct = default);
 
-        /// <summary>
-        /// Refresh cookie’den gelen raw refresh token ile yenileme yapar.
-        /// Reuse detection tetiklenirse UnauthorizedException fırlatır.
-        /// </summary>
-        Task<RefreshResult> RefreshAsync(string refreshTokenRaw, CancellationToken ct = default);
+        Task<LoginResult> LoginAsync(
+            LoginRequest req,
+            AuthAuditContext audit,
+            CancellationToken ct = default);
 
-        /// <summary>
-        /// Logout: refresh token raw varsa revoke + cookie host'ta silinir.
-        /// </summary>
-        Task LogoutAsync(string? refreshTokenRaw, CancellationToken ct = default);
-    }   
+        Task<RefreshResult> RefreshAsync(
+            string refreshTokenRaw,
+            AuthAuditContext audit,
+            CancellationToken ct = default);
+
+        Task LogoutAsync(
+            string? refreshTokenRaw,
+            AuthAuditContext audit,
+            CancellationToken ct = default);
+    }
 }

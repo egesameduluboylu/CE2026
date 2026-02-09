@@ -1,8 +1,13 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using Modules.Identity.Application.Admin;
+using Modules.Identity.Infrastructure.Abstractions;
+using Modules.Identity.Infrastructure.Admin;
 using Modules.Identity.Infrastructure.Configuration;
 using Modules.Identity.Infrastructure.Persistence;
+using Modules.Identity.Infrastructure.Persistence.Entities;
 using Modules.Identity.Infrastructure.Services;
 
 namespace Modules.Identity.Infrastructure
@@ -24,9 +29,20 @@ namespace Modules.Identity.Infrastructure
                     sql.CommandTimeout(30);
                 });
             });
-
+            //services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<PasswordService>();
             services.AddScoped<TokenService>();
+
+            services.Configure<EmailOptions>(configuration.GetSection("Email"));
+            services.Configure<PasswordResetOptions>(configuration.GetSection("PasswordReset"));
+
+            services.AddScoped<IEmailSender>(sp =>
+            {
+                var opt = sp.GetRequiredService<IOptions<EmailOptions>>().Value;
+                return opt.Provider.Equals("Smtp", StringComparison.OrdinalIgnoreCase)
+                    ? new SmtpEmailSender(sp.GetRequiredService<IOptions<EmailOptions>>())
+                    : new FileEmailSender(sp.GetRequiredService<IOptions<EmailOptions>>());
+            });
 
             services.AddOptions<JwtOptions>()
             .Bind(configuration.GetSection("Jwt"))
@@ -40,6 +56,13 @@ namespace Modules.Identity.Infrastructure
             services.AddOptions<AuthSecurityOptions>()
                 .Bind(configuration.GetSection("AuthSecurity"))
                 .ValidateOnStart();
+
+
+            services.AddScoped<IAdminUsersQuery, AdminUsersQuery>();
+
+
+
+
 
             return services;
         }

@@ -1,0 +1,25 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "users": "Users"
+  },
+  "app": {
+    "title": "Platform Admin",
+    "subtitle": "Manage your workspace",
+    "language": "Language",
+    "admin_console": "Admin Console",
+    "status": "Status",
+    "backend": "Backend"
+  },
+  "user": {
+    "logout": "Logout"
+  },
+  "auth": {
+    "logged_in": "Logged in successfully.",
+    "registered": "Account created successfully.",
+    "logged_out": "Logged out."
+  },
+  "common": {
+    "success": "Success"
+  }
+}

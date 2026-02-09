@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Modules.Identity.Application;
 using Modules.Identity.Infrastructure;
@@ -39,7 +39,10 @@ public static class IdentityModule
                 };
             });
 
-        services.AddAuthorization();
+        services.AddAuthorization(options =>
+        {
+            options.AddPolicy("admin", p => p.RequireRole("admin"));
+        });
 
         return services;
     }

@@ -1,6 +1,116 @@
-@Host.Api_HostAddress = http://localhost:5211
+@base = http://localhost:5211
+@accessToken = YOUR_ACCESS_TOKEN_HERE
 
-GET {{Host.Api_HostAddress}}/weatherforecast/
+### Health (no auth)
+GET {{base}}/health/live
+Accept: application/json
+
+###
+GET {{base}}/health/ready
+Accept: application/json
+
+###
+
+### Register
+POST {{base}}/api/auth/register
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "test@example.com",
+  "password": "Password123!"
+}
+
+###
+
+### Login (copy accessToken from response for below)
+# @name login
+POST {{base}}/api/auth/login
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "admin@platform.local",
+  "password": "Admin123!"
+}
+
+###
+
+### Me (use token from login)
+GET {{base}}/api/auth/me
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+###
+
+### Logout (cookie cleared by server)
+POST {{base}}/api/auth/logout
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+###
+
+### --- Admin (requires admin role) ---
+
+### Admin – Users list
+GET {{base}}/api/admin/users?page=1&pageSize=20
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+###
+
+### Admin – Users search
+GET {{base}}/api/admin/users?search=admin&page=1&pageSize=20
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+###
+
+### Admin – User by id (replace {id} with user Guid)
+GET {{base}}/api/admin/users/{id}
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+###
+
+### Admin – Revoke all refresh tokens for user (replace {id})
+POST {{base}}/api/admin/users/{id}/revoke-refresh-tokens
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+###
+
+### Admin – Security events
+GET {{base}}/api/admin/security-events?page=1&pageSize=50
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+###
+
+### Admin – Security events by type
+GET {{base}}/api/admin/security-events?type=LOGIN_FAIL&page=1&pageSize=50
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+###
+
+### Admin – Health ready
+GET {{base}}/api/admin/health/ready
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+###
+
+### Admin – Health live
+GET {{base}}/api/admin/health/live
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+###
+
+### Admin – Version
+GET {{base}}/api/admin/version
+Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ###

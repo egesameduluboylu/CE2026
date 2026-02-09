@@ -1,190 +1,182 @@
-﻿
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Modules.Identity.Application.Auth;
 using Modules.Identity.Contracts.Auth;
-using Modules.Identity.Infrastructure.Auth;
 using Modules.Identity.Infrastructure.Persistence;
 using Modules.Identity.Infrastructure.Persistence.Entities;
 using Modules.Identity.Infrastructure.Services;
 
-namespace Modules.Identity.Application.Auth
+namespace Modules.Identity.Infrastructure.Auth;
+
+public sealed class AuthService : IAuthService
 {
-    public class AuthService : IAuthService
+    private readonly AuthDbContext _db;
+    private readonly PasswordService _pw;
+    private readonly TokenService _tokens;
+    private readonly IConfiguration _cfg;
+
+    public AuthService(AuthDbContext db, PasswordService pw, TokenService tokens, IConfiguration cfg)
     {
-        private readonly AuthDbContext _db;
-        private readonly PasswordService _pw;
-        private readonly TokenService _tokens;
-        private readonly IConfiguration _cfg;
+        _db = db;
+        _pw = pw;
+        _tokens = tokens;
+        _cfg = cfg;
+    }
 
-        public AuthService(AuthDbContext db, PasswordService pw, TokenService tokens, IConfiguration cfg)
+    public async Task<RegisterResponse> RegisterAsync(RegisterRequest req, AuthAuditContext audit, CancellationToken ct = default)
+    {
+        var email = req.Email.Trim().ToLowerInvariant();
+
+        if (await _db.Users.AnyAsync(x => x.Email == email, ct))
+            throw new ConflictAuthException("Email already registered.");
+
+        var user = new AppUser
         {
-            _db = db;
-            _pw = pw;
-            _tokens = tokens;
-            _cfg = cfg;
+            Email = email,
+            PasswordHash = _pw.Hash(req.Password)
+        };
+
+        _db.Users.Add(user);
+        await _db.SaveChangesAsync(ct);
+
+        return new RegisterResponse(user.Id, user.Email);
+    }
+
+    public async Task<LoginResult> LoginAsync(LoginRequest req, AuthAuditContext audit, CancellationToken ct = default)
+    {
+        var email = req.Email.Trim().ToLowerInvariant();
+
+        var user = await _db.Users.FirstOrDefaultAsync(x => x.Email == email, ct);
+        if (user == null)
+            throw new UnauthorizedAuthException("Invalid credentials.");
+
+        if (user.LockoutUntil.HasValue && user.LockoutUntil.Value > DateTimeOffset.UtcNow)
+            throw new LockedAuthException("Account locked due to failed login attempts.", user.LockoutUntil);
+
+        if (!_pw.Verify(user.PasswordHash, req.Password))
+        {
+            await ApplyFailedLoginAsync(user, ct);
+            throw new UnauthorizedAuthException("Invalid credentials.");
         }
 
-        public async Task<RegisterResponse> RegisterAsync(RegisterRequest req, CancellationToken ct = default)
+        // ba�ar�l� login -> lockout/fail saya�lar�n� temizle
+        if (user.FailedLoginCount != 0 || user.LockoutUntil != null || user.LastFailedLoginAt != null)
         {
-            var email = req.Email.Trim().ToLowerInvariant();
-            var exists = await _db.Users.AnyAsync(x => x.Email == email, ct);
-            if (exists) throw new ConflictAuthException("Email already registered.");
-
-            var user = new AppUser
-            {
-                Email = email,
-                PasswordHash = _pw.Hash(req.Password)
-            };
-
-            _db.Users.Add(user);
-            await _db.SaveChangesAsync(ct);
-
-            return new RegisterResponse(user.Id, user.Email);
-        }
-
-        public async Task<LoginResult> LoginAsync(LoginRequest req, CancellationToken ct = default)
-        {
-            var email = req.Email.Trim().ToLowerInvariant();
-            var user = await _db.Users.FirstOrDefaultAsync(x => x.Email == email, ct);
-
-            // user enumeration yapma
-            if (user == null)
-                throw new UnauthorizedAuthException("Invalid credentials.");
-
-            // lockout kontrolü
-            if (user.LockoutUntil.HasValue && user.LockoutUntil.Value > DateTimeOffset.UtcNow)
-                throw new LockedAuthException("Account locked due to failed login attempts.", user.LockoutUntil);
-
-            // password check
-            if (!_pw.Verify(user.PasswordHash, req.Password))
-            {
-                await ApplyFailedLoginAsync(user, ct);
-                throw new UnauthorizedAuthException("Invalid credentials.");
-            }
-
-            // başarılı login -> reset
-            if (user.FailedLoginCount != 0 || user.LockoutUntil != null || user.LastFailedLoginAt != null)
-            {
-                user.FailedLoginCount = 0;
-                user.LockoutUntil = null;
-                user.LastFailedLoginAt = null;
-                await _db.SaveChangesAsync(ct);
-            }
-
-            var access = _tokens.CreateAccessToken(user.Id, user.Email);
-
-            var (rawRefresh, refreshHash) = _tokens.CreateRefreshToken();
-            var refreshDays = int.Parse(_cfg["Jwt:RefreshTokenDays"] ?? "14");
-
-            var rt = new RefreshToken
-            {
-                UserId = user.Id,
-                TokenHash = refreshHash,
-                ExpiresAt = DateTimeOffset.UtcNow.AddDays(refreshDays),
-            };
-
-            _db.RefreshTokens.Add(rt);
-            await _db.SaveChangesAsync(ct);
-
-            return new LoginResult(access, rawRefresh);
-        }
-
-        public async Task<RefreshResult> RefreshAsync(string refreshTokenRaw, CancellationToken ct = default)
-        {
-            var incomingHash = _tokens.HashRefreshToken(refreshTokenRaw);
-
-            var token = await _db.RefreshTokens
-                .Include(x => x.User)
-                .FirstOrDefaultAsync(x => x.TokenHash == incomingHash, ct);
-
-            if (token == null)
-                throw new UnauthorizedAuthException("Invalid refresh token.");
-
-            // reuse / expired
-            var now = DateTimeOffset.UtcNow;
-
-            // reuse detection
-            if (token.RevokedAt != null || token.ExpiresAt <= now)
-            {
-                await RevokeAllUserRefreshTokens(token.UserId, ct);
-                throw new UnauthorizedAuthException("Refresh token reuse detected. Please login again.");
-            }
-
-            // rotation - revoke current
-            token.RevokedAt = now;
-
-            var (newRaw, newHash) = _tokens.CreateRefreshToken();
-            var refreshDays = int.Parse(_cfg["Jwt:RefreshTokenDays"] ?? "14");
-
-            var newToken = new RefreshToken
-            {
-                Id = Guid.NewGuid(),               // ✅ önemli (replacedby için)
-                UserId = token.UserId,
-                TokenHash = newHash,
-                ExpiresAt = now.AddDays(refreshDays),
-            };
-
-            _db.RefreshTokens.Add(newToken);
-            token.ReplacedByTokenId = newToken.Id;
-
-            try
-            {
-                await _db.SaveChangesAsync(ct);
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                // ✅ Aynı refresh token paralel kullanıldı -> yarış durumu / reuse gibi ele al
-                await RevokeAllUserRefreshTokens(token.UserId, ct);
-                throw new UnauthorizedAuthException("Refresh token reuse detected. Please login again.");
-            }
-
-            var access = _tokens.CreateAccessToken(token.User.Id, token.User.Email);
-            return new RefreshResult(access, newRaw);
-        }
-
-        public async Task LogoutAsync(string? refreshTokenRaw, CancellationToken ct = default)
-        {
-            if (string.IsNullOrWhiteSpace(refreshTokenRaw))
-                return;
-
-            var incomingHash = _tokens.HashRefreshToken(refreshTokenRaw);
-
-            var token = await _db.RefreshTokens.FirstOrDefaultAsync(x => x.TokenHash == incomingHash, ct);
-            if (token == null) return;
-
-            token.RevokedAt = DateTimeOffset.UtcNow;
+            user.FailedLoginCount = 0;
+            user.LockoutUntil = null;
+            user.LastFailedLoginAt = null;
             await _db.SaveChangesAsync(ct);
         }
 
-        private async Task ApplyFailedLoginAsync(AppUser user, CancellationToken ct)
+        var access = _tokens.CreateAccessToken(user.Id, user.Email, user.IsAdmin);
+
+        var (rawRefresh, refreshHash) = _tokens.CreateRefreshToken();
+        var refreshDays = _cfg.GetValue<int>("Jwt:RefreshTokenDays", 14);
+
+        var rt = new RefreshToken
         {
-            user.FailedLoginCount += 1;
-            user.LastFailedLoginAt = DateTimeOffset.UtcNow;
+            UserId = user.Id,
+            TokenHash = refreshHash,
+            ExpiresAt = DateTimeOffset.UtcNow.AddDays(refreshDays),
+        };
 
-            var maxFailed = int.Parse(_cfg["AuthSecurity:MaxFailedLogins"] ?? "5");
-            var lockMinutes = int.Parse(_cfg["AuthSecurity:LockoutMinutes"] ?? "10");
+        _db.RefreshTokens.Add(rt);
+        await _db.SaveChangesAsync(ct);
 
-            if (user.FailedLoginCount >= maxFailed)
-            {
-                user.LockoutUntil = DateTimeOffset.UtcNow.AddMinutes(lockMinutes);
-                user.FailedLoginCount = 0;
-            }
+        return new LoginResult(access, rawRefresh);
+    }
 
-            await _db.SaveChangesAsync(ct);
+    public async Task<RefreshResult> RefreshAsync(string refreshTokenRaw, AuthAuditContext audit, CancellationToken ct = default)
+    {
+        var incomingHash = _tokens.HashRefreshToken(refreshTokenRaw);
+
+        var token = await _db.RefreshTokens
+            .Include(x => x.User)
+            .FirstOrDefaultAsync(x => x.TokenHash == incomingHash, ct);
+
+        if (token == null)
+            throw new UnauthorizedAuthException("Invalid refresh token.");
+
+        var now = DateTimeOffset.UtcNow;
+
+        // revoked/expired ise -> reuse/invalid senaryosu gibi t�m aktifleri revoke et
+        if (token.RevokedAt != null || token.ExpiresAt <= now)
+        {
+            await RevokeAllUserRefreshTokens(token.UserId, ct);
+            throw new UnauthorizedAuthException("Refresh token reuse detected. Please login again.");
         }
 
-        private async Task RevokeAllUserRefreshTokens(Guid userId, CancellationToken ct)
+        // rotation
+        token.RevokedAt = now;
+
+        var (newRaw, newHash) = _tokens.CreateRefreshToken();
+        var refreshDays = _cfg.GetValue<int>("Jwt:RefreshTokenDays", 14);
+
+        var newToken = new RefreshToken
         {
-            var now = DateTimeOffset.UtcNow;
+            Id = Guid.NewGuid(),
+            UserId = token.UserId,
+            TokenHash = newHash,
+            ExpiresAt = now.AddDays(refreshDays),
+        };
 
-            var active = await _db.RefreshTokens
-                .Where(x => x.UserId == userId && x.RevokedAt == null && x.ExpiresAt > now)
-                .ToListAsync(ct);
+        _db.RefreshTokens.Add(newToken);
+        token.ReplacedByTokenId = newToken.Id;
 
-            foreach (var t in active)
-                t.RevokedAt = now;
-
+        try
+        {
             await _db.SaveChangesAsync(ct);
         }
+        catch (DbUpdateConcurrencyException)
+        {
+            await RevokeAllUserRefreshTokens(token.UserId, ct);
+            throw new UnauthorizedAuthException("Refresh token reuse detected. Please login again.");
+        }
+
+        var access = _tokens.CreateAccessToken(token.User.Id, token.User.Email, token.User.IsAdmin);
+
+        // Controller res.NewRefreshTokenRaw bekliyor
+        return new RefreshResult(access, newRaw);
+    }
+
+    public async Task LogoutAsync(string? refreshTokenRaw, AuthAuditContext audit, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(refreshTokenRaw))
+            return;
+
+        var incomingHash = _tokens.HashRefreshToken(refreshTokenRaw);
+
+        var token = await _db.RefreshTokens.FirstOrDefaultAsync(x => x.TokenHash == incomingHash, ct);
+        if (token == null)
+            return;
+
+        token.RevokedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+    }
+
+    private async Task ApplyFailedLoginAsync(AppUser user, CancellationToken ct)
+    {
+        user.FailedLoginCount += 1;
+        user.LastFailedLoginAt = DateTimeOffset.UtcNow;
+
+        var maxFailed = _cfg.GetValue<int>("AuthSecurity:MaxFailedLogins", 5);
+        var lockMinutes = _cfg.GetValue<int>("AuthSecurity:LockoutMinutes", 10);
+
+        if (user.FailedLoginCount >= maxFailed)
+        {
+            user.LockoutUntil = DateTimeOffset.UtcNow.AddMinutes(lockMinutes);
+            user.FailedLoginCount = 0; // istersen resetleme davran���n� kald�rabiliriz
+        }
+
+        await _db.SaveChangesAsync(ct);
+    }
+
+    private async Task RevokeAllUserRefreshTokens(Guid userId, CancellationToken ct)
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        await _db.RefreshTokens
+            .Where(x => x.UserId == userId && x.RevokedAt == null && x.ExpiresAt > now)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.RevokedAt, now), ct);
     }
 }

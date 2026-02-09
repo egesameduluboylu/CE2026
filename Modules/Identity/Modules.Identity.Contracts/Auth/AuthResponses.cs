@@ -1,12 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿namespace Modules.Identity.Contracts.Auth;
 
-namespace Modules.Identity.Contracts.Auth
-{
-    public record RegisterResponse(Guid Id, string Email);
-    public record LoginResponse(string AccessToken);
+public sealed record LoginResult(string AccessToken, string RefreshTokenRaw);
+public sealed record RefreshResult(string AccessToken, string NewRefreshTokenRaw);
+public sealed record RegisterResponse(Guid UserId, string Email);
+public sealed record MeResponse(string UserId, string? Email);
 
-    public record RefreshResponse(string AccessToken);
-    public record MeResponse(string UserId, string? Email);
-}
+public sealed record LoginResponse(string AccessToken);
+
+public sealed record RefreshResponse(string AccessToken);

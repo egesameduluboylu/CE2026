@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Modules.Identity.Infrastructure.Persistence;
 using Modules.Identity.Infrastructure.Persistence.Entities;
 using Modules.Identity.Infrastructure.Services;
@@ -28,7 +28,8 @@ public static class SeedExtensions
         db.Users.Add(new AppUser
         {
             Email = seedEmail,
-            PasswordHash = pw.Hash(seedPass)
+            PasswordHash = pw.Hash(seedPass),
+            IsAdmin = true
         });
 
         await db.SaveChangesAsync(ct);

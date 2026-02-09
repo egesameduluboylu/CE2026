@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -14,5 +14,7 @@ namespace Modules.Identity.Infrastructure.Persistence.Entities
         public int FailedLoginCount { get; set; }
         public DateTimeOffset? LockoutUntil { get; set; }
         public DateTimeOffset? LastFailedLoginAt { get; set; }
+        public bool IsAdmin { get; set; }
+
     }
 }

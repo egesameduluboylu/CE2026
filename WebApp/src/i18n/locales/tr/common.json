@@ -1,0 +1,25 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "users": "Kullanıcılar"
+  },
+  "app": {
+    "title": "Platform Admin",
+    "subtitle": "Çalışma alanını yönet",
+    "language": "Dil",
+    "admin_console": "Admin Konsol",
+    "status": "Durum",
+    "backend": "Backend"
+  },
+  "user": {
+    "logout": "Çıkış Yap"
+  },
+  "common": {
+    "success": "Başarılı"
+  },
+  "auth": {
+    "logged_in": "Giriş başarılı.",
+    "registered": "Hesap oluşturuldu.",
+    "logged_out": "Çıkış yapıldı."
+  }
+}

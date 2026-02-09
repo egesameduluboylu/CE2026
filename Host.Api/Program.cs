@@ -1,16 +1,31 @@
-﻿using BuildingBlocks.Web;
+using BuildingBlocks.Security.Authorization;
+using BuildingBlocks.Web;
 using Host.Api.Extensions;
 using Host.Api.Modules.Identity;
+using Host.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Modules.Identity.Application;
 using Modules.Identity.Infrastructure;
+using Modules.Identity.Infrastructure.Persistence;
+using Serilog;
 using System.Text;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Serilog: JSON console, traceId in properties
+builder.Host.UseSerilog((ctx, cfg) =>
+{
+    cfg.ReadFrom.Configuration(ctx.Configuration)
+        .Enrich.FromLogContext()
+        .Enrich.WithProperty("Application", ctx.HostingEnvironment.ApplicationName)
+        .WriteTo.Console();
+});
 
 builder.Services.AddControllers();
 builder.Services.AddProblemDetails();
@@ -19,8 +34,24 @@ builder.Services.AddProblemDetails();
 builder.Services.AddIdentityModule(builder.Configuration);
 builder.Services.AddIdentityApplication();
 
+// Health checks (DB)
+var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
+builder.Services.AddHealthChecks().AddSqlServer(connStr!, name: "sqlserver");
+
+// Refresh token cleanup
+builder.Services.AddHostedService<RefreshTokenCleanupService>();
+
 // Web defaults
 builder.Services.AddWebDefaults();
+
+// Culture
+builder.Services.AddBuildingBlocksWeb(localization: o =>
+{
+    o.DefaultCulture = new("tr-TR");
+    o.EnableCookieProvider = true;
+    o.EnableQueryStringProvider = false;
+});
+
 
 // Rate limiting
 builder.Services.AddRateLimiter(options =>
@@ -70,25 +101,28 @@ var issuer = builder.Configuration["Jwt:Issuer"]
 var audience = builder.Configuration["Jwt:Audience"]
     ?? throw new InvalidOperationException("Jwt:Audience missing.");
 
-builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(opt =>
-    {
-        opt.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateIssuerSigningKey = true,
-            ValidateLifetime = true,
+//builder.Services
+//    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+//    .AddJwtBearer(opt =>
+//    {
+//        opt.TokenValidationParameters = new TokenValidationParameters
+//        {
+//            ValidateIssuer = true,
+//            ValidateAudience = true,
+//            ValidateIssuerSigningKey = true,
+//            ValidateLifetime = true,
 
-            ValidIssuer = issuer,
-            ValidAudience = audience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
-            ClockSkew = TimeSpan.FromSeconds(30)
-        };
-    });
+//            ValidIssuer = issuer,
+//            ValidAudience = audience,
+//            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+//            ClockSkew = TimeSpan.FromSeconds(30)
+//        };
+//    });
 
 builder.Services.AddAuthorization();
+
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
 // Forwarded headers (IIS / reverse proxy)
 var forwardedOptions = new ForwardedHeadersOptions
@@ -112,7 +146,15 @@ if (seed)
     await app.SeedIdentityAsync();
 }
 
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
+    await PermissionSeeder.SeedAsync(db);
+}
+
 app.UseForwardedHeaders(forwardedOptions);
+
+app.UseSerilogRequestLogging();
 
 app.UseWebDefaults();
 
@@ -129,5 +171,8 @@ app.UseRateLimiter();
 
 app.MapControllers();
 
+// Unauthenticated health for load balancers (optional)
+app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions { Predicate = _ => false });
+app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions());
 
 app.Run();

@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
@@ -15,7 +15,7 @@ namespace Modules.Identity.Infrastructure.Services
 
         public TokenService(IConfiguration cfg) => _cfg = cfg;
 
-        public string CreateAccessToken(Guid userId, string email)
+        public string CreateAccessToken(Guid userId, string email, bool isAdmin = false)
         {
             var issuer = _cfg["Jwt:Issuer"]!;
             var audience = _cfg["Jwt:Audience"]!;
@@ -23,12 +23,14 @@ namespace Modules.Identity.Infrastructure.Services
             var minutes = int.Parse(_cfg["Jwt:AccessTokenMinutes"] ?? "15");
 
             var claims = new List<Claim>
-        {
-            new(JwtRegisteredClaimNames.Sub, userId.ToString()),
-            new(JwtRegisteredClaimNames.Email, email),
-            new(ClaimTypes.NameIdentifier, userId.ToString()),
-            new(ClaimTypes.Name, email)
-        };
+            {
+                new(JwtRegisteredClaimNames.Sub, userId.ToString()),
+                new(JwtRegisteredClaimNames.Email, email),
+                new(ClaimTypes.NameIdentifier, userId.ToString()),
+                new(ClaimTypes.Name, email)
+            };
+            if (isAdmin)
+                claims.Add(new Claim(ClaimTypes.Role, "admin"));
 
             var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
             var creds = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
