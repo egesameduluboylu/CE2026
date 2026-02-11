@@ -20,7 +20,9 @@ public sealed class AdminUsersQuery : IAdminUsersQuery
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim().ToLowerInvariant();
-            query = query.Where(u => u.Email.ToLower().Contains(term));
+            query = query.Where(u => u.Email.ToLower().Contains(term) ||
+                                    (u.FirstName != null && u.FirstName.ToLower().Contains(term)) ||
+                                    (u.LastName != null && u.LastName.ToLower().Contains(term)));
         }
 
         var total = await query.CountAsync(ct);
@@ -30,7 +32,18 @@ public sealed class AdminUsersQuery : IAdminUsersQuery
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(u => new AdminUserListItem(
-                u.Id, u.Email, u.CreatedAt, u.IsAdmin, u.FailedLoginCount, u.LockoutUntil
+                u.Id, 
+                u.Email, 
+                u.FirstName, 
+                u.LastName, 
+                u.FullName, 
+                u.PhoneNumber, 
+                u.IsActive, 
+                u.CreatedAt, 
+                u.IsAdmin, 
+                u.FailedLoginCount, 
+                u.LockoutUntil, 
+                u.LastLoginAt
             ))
             .ToListAsync(ct);
 
@@ -42,7 +55,22 @@ public sealed class AdminUsersQuery : IAdminUsersQuery
         var user = await _db.Users.AsNoTracking()
             .Where(u => u.Id == id)
             .Select(u => new AdminUserDetail(
-                u.Id, u.Email, u.CreatedAt, u.IsAdmin, u.FailedLoginCount, u.LockoutUntil, u.LastFailedLoginAt
+                u.Id, 
+                u.Email, 
+                u.FirstName, 
+                u.LastName, 
+                u.FullName, 
+                u.PhoneNumber, 
+                u.AvatarUrl, 
+                u.IsActive, 
+                u.CreatedAt, 
+                u.IsAdmin, 
+                u.FailedLoginCount, 
+                u.LockoutUntil, 
+                u.LastFailedLoginAt, 
+                u.LastLoginAt, 
+                u.LastLoginIp, 
+                u.LastLoginUserAgent
             ))
             .FirstOrDefaultAsync(ct);
 
@@ -62,6 +90,7 @@ public sealed class AdminUsersQuery : IAdminUsersQuery
 
     public async Task<RevokeTokensResponse> RevokeRefreshTokensAsync(Guid id, CancellationToken ct)
     {
+        var userIdStr = id.ToString();
         var now = DateTimeOffset.UtcNow;
 
         var tokens = await _db.RefreshTokens

@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Modules.Identity.Infrastructure.Persistence
 {
@@ -27,7 +28,9 @@ namespace Modules.Identity.Infrastructure.Persistence
             var optionsBuilder = new DbContextOptionsBuilder<AuthDbContext>();
             optionsBuilder.UseSqlServer(cs);
 
-            return new AuthDbContext(optionsBuilder.Options);
+            // For design-time operations, we can create a null service provider
+            var serviceProvider = new ServiceCollection().BuildServiceProvider();
+            return new AuthDbContext(optionsBuilder.Options, serviceProvider);
         }
     }
 }

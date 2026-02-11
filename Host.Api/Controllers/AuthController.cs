@@ -1,4 +1,4 @@
-using BuildingBlocks.Abstractions;
+﻿using BuildingBlocks.Abstractions;
 using BuildingBlocks.Web;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -62,6 +62,14 @@ namespace Host.Api.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login(LoginRequest req, CancellationToken ct)
         {
+            // Basic validation
+            if (string.IsNullOrWhiteSpace(req.Email) || 
+                string.IsNullOrWhiteSpace(req.Password) ||
+                !req.Email.Contains("@"))
+            {
+                return BadRequest(new { error = "Invalid email or password" });
+            }
+
             var (ip, ua) = GetAudit(HttpContext);
 
             var cmd = new LoginCommand(req.Email, req.Password, ip, ua);
@@ -71,9 +79,18 @@ namespace Host.Api.Controllers
                 return ToProblem(result);
 
             var value = result.Value!;
-            SetRefreshCookie(value.RefreshTokenRaw);
+            
+            // Check if 2FA is required
+            if (value.RequiresTwoFactor)
+            {
+                // TODO: Store user ID in session for 2FA verification
+                // HttpContext.Session.SetString("TfaUserId", value.UserId!);
+                return Ok(ApiResponse.Ok(new { requiresTwoFactor = true, userId = value.UserId }, HttpContext.TraceIdentifier));
+            }
 
-            return Ok(ApiResponse.Ok(new LoginResponse(value.AccessToken), HttpContext.TraceIdentifier));
+            SetRefreshCookie(value.RefreshTokenRaw!);
+
+            return Ok(ApiResponse.Ok(new LoginResponse(value.AccessToken!), HttpContext.TraceIdentifier));
         }
 
         [HttpPost("refresh")]
@@ -125,7 +142,7 @@ namespace Host.Api.Controllers
                 User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                 ?? User.FindFirst("sub")?.Value;
 
-            if (!Guid.TryParse(userId, out var uid))
+            if (string.IsNullOrWhiteSpace(userId))
                 return Unauthorized();
 
             var email =
@@ -135,7 +152,7 @@ namespace Host.Api.Controllers
 
             // admin shortcut
             var isAdmin = await db.Users
-                .Where(x => x.Id == uid)
+                .Where(x => x.Id.ToString() == userId)
                 .Select(x => x.IsAdmin)
                 .FirstOrDefaultAsync(ct);
 
@@ -148,7 +165,7 @@ namespace Host.Api.Controllers
             else
             {
                 permissions = await db.UserRoles
-                    .Where(ur => ur.UserId == uid)
+                    .Where(ur => ur.UserId.ToString() == userId)
                     .Join(db.RolePermissions,
                         ur => ur.RoleId,
                         rp => rp.RoleId,
@@ -160,7 +177,7 @@ namespace Host.Api.Controllers
             return Ok(ApiResponse.Ok(
                 new
                 {
-                    userId = uid,
+                    userId,
                     email,
                     permissions
                 },

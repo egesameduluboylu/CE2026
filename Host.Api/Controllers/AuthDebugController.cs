@@ -1,5 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Modules.Identity.Infrastructure.Persistence;
+using Modules.Identity.Infrastructure.Persistence.Entities;
+using Modules.Identity.Infrastructure.Services;
 
 namespace Host.Api.Controllers;
 
@@ -7,21 +10,30 @@ namespace Host.Api.Controllers;
 [Route("api/debug/auth")]
 public class AuthDebugController : ControllerBase
 {
-    private readonly UserManager<IdentityUser> _users;
+    private readonly AuthDbContext _db;
+    private readonly PasswordService _pw;
 
-    public AuthDebugController(UserManager<IdentityUser> users)
+    public AuthDebugController(AuthDbContext db, PasswordService pw)
     {
-        _users = users;
+        _db = db;
+        _pw = pw;
     }
 
     [HttpPost("create-user")]
     public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest req)
     {
-        var user = new IdentityUser { UserName = req.Email, Email = req.Email };
-        var result = await _users.CreateAsync(user, req.Password);
-        if (!result.Succeeded)
-            return BadRequest(result.Errors);
+        var email = req.Email.Trim().ToLowerInvariant();
+        if (await _db.Users.AnyAsync(u => u.Email == email))
+            return BadRequest(new { error = "Email already exists." });
 
+        var user = new AppUser
+        {
+            Email = email,
+            UserName = email,
+            PasswordHash = _pw.Hash(req.Password)
+        };
+        _db.Users.Add(user);
+        await _db.SaveChangesAsync();
         return Ok(new { user.Id, user.Email });
     }
 }

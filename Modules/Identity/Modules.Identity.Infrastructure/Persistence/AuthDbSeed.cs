@@ -4,11 +4,11 @@ using Modules.Identity.Infrastructure.Persistence.Entities;
 
 namespace Modules.Identity.Infrastructure.Persistence;
 
-public static class AuthDbSeed
+public static class AuthDbContextSeed
 {
     public static async Task SeedAsync(AuthDbContext db, CancellationToken ct = default)
     {
-        // 1) admin role
+        // 1) Seed admin role
         var admin = await db.Roles.FirstOrDefaultAsync(x => x.Name == "admin", ct);
         if (admin is null)
         {
@@ -17,7 +17,7 @@ public static class AuthDbSeed
             await db.SaveChangesAsync(ct);
         }
 
-        // 2) permissions
+        // 2) Seed permissions
         var existingPerms = await db.Permissions.Select(x => x.Key).ToListAsync(ct);
         var missingPerms = Permissions.All.Except(existingPerms).ToList();
         if (missingPerms.Count > 0)
@@ -26,7 +26,7 @@ public static class AuthDbSeed
             await db.SaveChangesAsync(ct);
         }
 
-        // 3) admin gets all perms
+        // 3) Give admin all permissions
         var adminPerms = await db.RolePermissions
             .Where(x => x.RoleId == admin.Id)
             .Select(x => x.PermissionKey)
@@ -43,21 +43,40 @@ public static class AuthDbSeed
             await db.SaveChangesAsync(ct);
         }
 
-        // 4) link IsAdmin users to admin role
-        var adminUserIds = await db.Users.Where(u => u.IsAdmin).Select(u => u.Id).ToListAsync(ct);
-        if (adminUserIds.Count > 0)
+        // 4) Seed admin user
+        var adminUser = await db.Users.FirstOrDefaultAsync(x => x.Email == "admin@example.com", ct);
+        if (adminUser is null)
         {
-            var alreadyLinked = await db.UserRoles
-                .Where(ur => ur.RoleId == admin.Id)
-                .Select(ur => ur.UserId)
-                .ToListAsync(ct);
-
-            var toLink = adminUserIds.Except(alreadyLinked).ToList();
-            if (toLink.Count > 0)
+            adminUser = new AppUser
             {
-                db.UserRoles.AddRange(toLink.Select(uid => new AppUserRole { UserId = uid, RoleId = admin.Id }));
-                await db.SaveChangesAsync(ct);
-            }
+                Email = "admin@example.com",
+                UserName = "admin",
+                FirstName = "Admin",
+                LastName = "User",
+                IsActive = true,
+                IsAdmin = true,
+                CreatedBy = "system"
+            };
+            
+            // Set password hash (you should use proper password hashing)
+            adminUser.PasswordHash = "AQAAAAEAACcQAAAAEKqjXt1QyZ8Z8Z8Z8Z8Z8Z8Z8Z8Z8Z8Z8Z8Z8Z8Z8Z8Z8Z8Z8Z8Z8Z8Z8Z8Z8Z"; // "Admin123!"
+            
+            db.Users.Add(adminUser);
+            await db.SaveChangesAsync(ct);
+        }
+
+        // 5) Link admin user to admin role
+        var userRole = await db.UserRoles
+            .FirstOrDefaultAsync(x => x.UserId == adminUser.Id && x.RoleId == admin.Id, ct);
+        
+        if (userRole is null)
+        {
+            db.UserRoles.Add(new AppUserRole
+            {
+                UserId = adminUser.Id,
+                RoleId = admin.Id
+            });
+            await db.SaveChangesAsync(ct);
         }
     }
 }

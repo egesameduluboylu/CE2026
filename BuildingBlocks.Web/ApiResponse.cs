@@ -8,5 +8,8 @@ namespace BuildingBlocks.Web
     {
         public static object Ok(object data, string? traceId)
             => new { data, traceId };
+
+        public static object Fail(string error, string? traceId)
+            => new { error, traceId };
     }
 }

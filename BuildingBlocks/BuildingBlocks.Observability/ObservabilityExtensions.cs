@@ -39,13 +39,18 @@ public static class ObservabilityExtensions
             .WithTracing(t =>
             {
                 t.AddAspNetCoreInstrumentation()
-                 .AddHttpClientInstrumentation();
+                 .AddHttpClientInstrumentation()
+                 .AddSqlClientInstrumentation();
+
+                t.AddOtlpExporter();
             })
             .WithMetrics(m =>
             {
                 m.AddAspNetCoreInstrumentation()
                  .AddHttpClientInstrumentation()
                  .AddRuntimeInstrumentation();
+
+                m.AddOtlpExporter();
             });
 
         return services;

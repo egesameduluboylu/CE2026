@@ -1,8 +1,9 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using BuildingBlocks.Abstractions.Domain;
+using System.ComponentModel.DataAnnotations;
 
 namespace Modules.Identity.Infrastructure.Persistence.Entities;
 
-public class AppUserRole
+public class AppUserRole : BaseEntity
 {
     [Required]
     public Guid UserId { get; set; }

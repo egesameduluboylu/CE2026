@@ -1,4 +1,5 @@
 using BuildingBlocks.Web;
+using BuildingBlocks.Web.Errors;
 using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -28,7 +29,11 @@ public static class ExceptionMiddleware
                         Title = "Validation Error",
                         Detail = "One or more validation errors occurred.",
                         Type = "https://httpstatuses.com/422",
-                        Extensions = { ["traceId"] = traceId }
+                        Extensions =
+                        {
+                            ["traceId"] = traceId,
+                            [ProblemDetailsExt.ErrorCodeKey] = "common.validation_error"
+                        }
                     });
                     return;
                 }

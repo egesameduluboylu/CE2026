@@ -2,13 +2,18 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Modules.Identity.Application.Admin;
+using BuildingBlocks.Infrastructure.Options;
+using BuildingBlocks.Abstractions.Auditing;
+using BuildingBlocks.Abstractions.Domain;
+using BuildingBlocks.Infrastructure.Services;
+using Modules.Identity.Infrastructure.Auditing;
 using Modules.Identity.Infrastructure.Abstractions;
-using Modules.Identity.Infrastructure.Admin;
+using Modules.Identity.Infrastructure.Auth;
 using Modules.Identity.Infrastructure.Configuration;
 using Modules.Identity.Infrastructure.Persistence;
 using Modules.Identity.Infrastructure.Persistence.Entities;
 using Modules.Identity.Infrastructure.Services;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Modules.Identity.Infrastructure
 {
@@ -29,12 +34,38 @@ namespace Modules.Identity.Infrastructure
                     sql.CommandTimeout(30);
                 });
             });
-            //services.AddScoped<IAuthService, AuthService>();
+            services.AddScoped<Modules.Identity.Application.Admin.IAdminUsersQuery, Modules.Identity.Infrastructure.Admin.AdminUsersQuery>();
             services.AddScoped<PasswordService>();
             services.AddScoped<TokenService>();
+            services.AddScoped<ITwoFactorAuthService, TwoFactorAuthService>();
+            services.AddScoped<Modules.Identity.Contracts.Notifications.INotificationService, Modules.Identity.Infrastructure.Notifications.NotificationService>();
+            
+            // Background Jobs
+            services.AddScoped<Modules.Identity.Contracts.BackgroundJobs.IBackgroundJobService, Modules.Identity.Infrastructure.BackgroundJobs.BackgroundJobService>();
+            services.AddScoped<Modules.Identity.Contracts.BackgroundJobs.IJobQueue, Modules.Identity.Infrastructure.BackgroundJobs.JobQueue>();
+            services.AddScoped<Modules.Identity.Infrastructure.BackgroundJobs.Handlers.EmailJobHandler>();
+            services.AddScoped<Modules.Identity.Infrastructure.BackgroundJobs.Handlers.DataProcessingJobHandler>();
+            services.AddScoped<Modules.Identity.Infrastructure.BackgroundJobs.Handlers.ScheduledTaskHandler>();
+            
+            // Email Service (mock implementation for now)
+            services.AddScoped<Modules.Identity.Infrastructure.BackgroundJobs.Handlers.IEmailService, Modules.Identity.Infrastructure.BackgroundJobs.Handlers.MockEmailService>();
+            services.AddScoped<Modules.Identity.Infrastructure.BackgroundJobs.Handlers.IDataProcessingService, Modules.Identity.Infrastructure.BackgroundJobs.Handlers.MockDataProcessingService>();
+            services.AddScoped<Modules.Identity.Infrastructure.BackgroundJobs.Handlers.IScheduledTaskService, Modules.Identity.Infrastructure.BackgroundJobs.Handlers.MockScheduledTaskService>();
 
-            services.Configure<EmailOptions>(configuration.GetSection("Email"));
-            services.Configure<PasswordResetOptions>(configuration.GetSection("PasswordReset"));
+            services.AddValidatedOptions<EmailOptions>(configuration, "Email")
+                .Validate(o =>
+                    o.Provider.Equals("File", StringComparison.OrdinalIgnoreCase)
+                    || o.Provider.Equals("Smtp", StringComparison.OrdinalIgnoreCase),
+                    "Email:Provider must be 'File' or 'Smtp'.")
+                .Validate(o =>
+                    !o.Provider.Equals("Smtp", StringComparison.OrdinalIgnoreCase)
+                    || !string.IsNullOrWhiteSpace(o.SmtpHost),
+                    "Email:SmtpHost is required when Email:Provider is 'Smtp'.")
+                .Validate(o =>
+                    !o.Provider.Equals("File", StringComparison.OrdinalIgnoreCase)
+                    || !string.IsNullOrWhiteSpace(o.FilePickupDirectory),
+                    "Email:FilePickupDirectory is required when Email:Provider is 'File'.");
+            services.AddValidatedOptions<PasswordResetOptions>(configuration, "PasswordReset");
 
             services.AddScoped<IEmailSender>(sp =>
             {
@@ -44,25 +75,17 @@ namespace Modules.Identity.Infrastructure
                     : new FileEmailSender(sp.GetRequiredService<IOptions<EmailOptions>>());
             });
 
-            services.AddOptions<JwtOptions>()
-            .Bind(configuration.GetSection("Jwt"))
-            .Validate(o => !string.IsNullOrWhiteSpace(o.Key), "Jwt:Key missing.")
-            .ValidateOnStart();
+            services.AddValidatedOptions<JwtOptions>(configuration, "Jwt")
+                .Validate(o => !string.IsNullOrWhiteSpace(o.Key), "Jwt:Key missing.");
 
-            services.AddOptions<AuthCookiesOptions>()
-                .Bind(configuration.GetSection("AuthCookies"))
-                .ValidateOnStart();
+            services.AddValidatedOptions<AuthCookiesOptions>(configuration, "AuthCookies");
 
-            services.AddOptions<AuthSecurityOptions>()
-                .Bind(configuration.GetSection("AuthSecurity"))
-                .ValidateOnStart();
+            services.AddValidatedOptions<AuthSecurityOptions>(configuration, "AuthSecurity");
 
-
-            services.AddScoped<IAdminUsersQuery, AdminUsersQuery>();
-
-
-
-
+            services.AddScoped<IAuditLogger, EfAuditLogger>();
+            
+            // Register user context service for audit trail
+            services.AddScoped<IUserContext, UserContextService>();
 
             return services;
         }

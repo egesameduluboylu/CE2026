@@ -15,7 +15,12 @@ namespace Modules.Identity.Infrastructure.Services
 
         public TokenService(IConfiguration cfg) => _cfg = cfg;
 
-        public string CreateAccessToken(Guid userId, string email, bool isAdmin = false)
+        public string CreateAccessToken(string userId, string email, bool isAdmin = false)
+        {
+            return CreateAccessToken(userId, email, isAdmin, Array.Empty<string>());
+        }
+
+        public string CreateAccessToken(string userId, string email, bool isAdmin, string[] permissions)
         {
             var issuer = _cfg["Jwt:Issuer"]!;
             var audience = _cfg["Jwt:Audience"]!;
@@ -24,13 +29,16 @@ namespace Modules.Identity.Infrastructure.Services
 
             var claims = new List<Claim>
             {
-                new(JwtRegisteredClaimNames.Sub, userId.ToString()),
+                new(JwtRegisteredClaimNames.Sub, userId),
                 new(JwtRegisteredClaimNames.Email, email),
-                new(ClaimTypes.NameIdentifier, userId.ToString()),
+                new(ClaimTypes.NameIdentifier, userId),
                 new(ClaimTypes.Name, email)
             };
             if (isAdmin)
                 claims.Add(new Claim(ClaimTypes.Role, "admin"));
+
+            foreach (var perm in permissions)
+                claims.Add(new Claim("permission", perm));
 
             var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
             var creds = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);

@@ -1,11 +1,10 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using BuildingBlocks.Abstractions.Domain;
 
 namespace Modules.Identity.Infrastructure.Persistence.Entities;
 
-public class AppRole
+public class AppRole : BaseEntity
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
-
     [MaxLength(64)]
     public string Name { get; set; } = default!; // "admin"
 

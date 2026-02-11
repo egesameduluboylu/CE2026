@@ -23,7 +23,6 @@ namespace BuildingBlocks.Web
 
         public static IApplicationBuilder UseWebDefaults(this IApplicationBuilder app)
         {
-            app.UseExceptionHandler();
             return app;
         }
     }

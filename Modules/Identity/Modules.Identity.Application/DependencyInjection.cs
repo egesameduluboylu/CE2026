@@ -1,10 +1,8 @@
 ﻿using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
-using Modules.Identity.Application.Admin;
 using Modules.Identity.Application.Auth;
 using Modules.Identity.Application.Behaviors;
-using Modules.Identity.Infrastructure.Admin;
 using Modules.Identity.Infrastructure.Auth;
 using System.Reflection;
 
@@ -18,8 +16,8 @@ public static class DependencyInjection
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(assembly));
         services.AddValidatorsFromAssembly(assembly);
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
-
         services.AddScoped<IAuthService, AuthService>();
+
         return services;
     }
 }

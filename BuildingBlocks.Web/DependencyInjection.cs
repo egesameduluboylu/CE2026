@@ -1,5 +1,5 @@
 ﻿using BuildingBlocks.Web.Localization;
-using BuildingBlocks.Web.Middleware;
+using BuildingBlocks.Web.Tenancy;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -11,15 +11,15 @@ public static class DependencyInjection
         this IServiceCollection services,
         Action<CompanyLocalizationOptions>? localization = null)
     {
-        services.AddTransient<ExceptionHandlingMiddleware>();
         services.AddCompanyLocalization(localization);
+        services.AddTenantResolution();
         return services;
     }
 
     public static IApplicationBuilder UseBuildingBlocksWeb(this IApplicationBuilder app)
     {
-        app.UseMiddleware<ExceptionHandlingMiddleware>();
         app.UseCompanyLocalization();
+        app.UseTenantResolution();
         return app;
     }
 }

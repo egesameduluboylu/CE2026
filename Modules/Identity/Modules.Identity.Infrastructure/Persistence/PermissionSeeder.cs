@@ -37,7 +37,6 @@ public static class PermissionSeeder
         {
             adminRole = new AppRole
             {
-                Id = Guid.NewGuid(),
                 Name = "admin"
             };
 

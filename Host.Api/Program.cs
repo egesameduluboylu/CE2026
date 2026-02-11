@@ -1,24 +1,14 @@
-using BuildingBlocks.Security.Authorization;
-using BuildingBlocks.Web;
-using Host.Api.Extensions;
-using Host.Api.Modules.Identity;
-using Host.Api.Services;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using Modules.Identity.Application;
-using Modules.Identity.Infrastructure;
-using Modules.Identity.Infrastructure.Persistence;
-using Serilog;
 using System.Text;
-using System.Threading.RateLimiting;
+using Serilog;
+using Modules.Identity.Infrastructure.Persistence;
+using Host.Api.Modules.Identity;
+
+// Set UTF-8 encoding
+Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Serilog: JSON console, traceId in properties
+// Serilog
 builder.Host.UseSerilog((ctx, cfg) =>
 {
     cfg.ReadFrom.Configuration(ctx.Configuration)
@@ -27,152 +17,78 @@ builder.Host.UseSerilog((ctx, cfg) =>
         .WriteTo.Console();
 });
 
-builder.Services.AddControllers();
-builder.Services.AddProblemDetails();
-
-// Identity
+// Identity Module (DB, Auth services, JWT, Authorization, custom Role/Permission system)
 builder.Services.AddIdentityModule(builder.Configuration);
-builder.Services.AddIdentityApplication();
 
-// Health checks (DB)
-var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
-builder.Services.AddHealthChecks().AddSqlServer(connStr!, name: "sqlserver");
-
-// Refresh token cleanup
-builder.Services.AddHostedService<RefreshTokenCleanupService>();
-
-// Web defaults
-builder.Services.AddWebDefaults();
-
-// Culture
-builder.Services.AddBuildingBlocksWeb(localization: o =>
+// Session for 2FA
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
 {
-    o.DefaultCulture = new("tr-TR");
-    o.EnableCookieProvider = true;
-    o.EnableQueryStringProvider = false;
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+    options.Cookie.SameSite = SameSiteMode.Lax;
 });
 
-
-// Rate limiting
-builder.Services.AddRateLimiter(options =>
+// CORS
+var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+builder.Services.AddCors(options =>
 {
-    options.AddPolicy("auth_login", httpContext =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 5,
-                Window = TimeSpan.FromMinutes(1),
-                QueueLimit = 0,
-                AutoReplenishment = true
-            }));
-
-    options.AddPolicy("auth_refresh", httpContext =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 10,
-                Window = TimeSpan.FromMinutes(1),
-                QueueLimit = 0,
-                AutoReplenishment = true
-            }));
-
-    options.OnRejected = async (context, token) =>
+    options.AddDefaultPolicy(policy =>
     {
-        context.HttpContext.Response.StatusCode = 429;
-        context.HttpContext.Response.ContentType = "application/problem+json; charset=utf-8";
-
-        await context.HttpContext.Response.WriteAsJsonAsync(new ProblemDetails
-        {
-            Status = 429,
-            Title = "Too Many Requests",
-            Detail = "Rate limit exceeded. Please try again later.",
-            Type = "https://httpstatuses.com/429"
-        }, token);
-    };
+        policy.WithOrigins(corsOrigins)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
 });
 
-// JWT Auth (config anahtarları sende Jwt:Key, Jwt:Issuer, Jwt:Audience)
-var jwtKey = builder.Configuration["Jwt:Key"]
-    ?? throw new InvalidOperationException("Jwt:Key missing.");
-var issuer = builder.Configuration["Jwt:Issuer"]
-    ?? throw new InvalidOperationException("Jwt:Issuer missing.");
-var audience = builder.Configuration["Jwt:Audience"]
-    ?? throw new InvalidOperationException("Jwt:Audience missing.");
+// Controllers
+builder.Services.AddControllers();
 
-//builder.Services
-//    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-//    .AddJwtBearer(opt =>
-//    {
-//        opt.TokenValidationParameters = new TokenValidationParameters
-//        {
-//            ValidateIssuer = true,
-//            ValidateAudience = true,
-//            ValidateIssuerSigningKey = true,
-//            ValidateLifetime = true,
+// HttpContextAccessor for UserContext
+builder.Services.AddHttpContextAccessor();
 
-//            ValidIssuer = issuer,
-//            ValidAudience = audience,
-//            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
-//            ClockSkew = TimeSpan.FromSeconds(30)
-//        };
-//    });
+// SignalR
+builder.Services.AddSignalR();
 
-builder.Services.AddAuthorization();
+// Background Worker - TODO: Uncomment when BackgroundWorkerService is created
+//builder.Services.AddHostedService<BackgroundWorkerService>();
 
-builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
-builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+// Swagger
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
-// Forwarded headers (IIS / reverse proxy)
-var forwardedOptions = new ForwardedHeadersOptions
-{
-    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
-};
-forwardedOptions.KnownProxies.Add(System.Net.IPAddress.Loopback);
-forwardedOptions.KnownProxies.Add(System.Net.IPAddress.IPv6Loopback);
+// Health Checks
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<AuthDbContext>();
 
 var app = builder.Build();
 
-var autoMigrate = builder.Configuration.GetValue<bool>("Database:AutoMigrate");
-if (autoMigrate)
-{
-    await app.ApplyMigrationsAsync();
-}
-
-var seed = builder.Configuration.GetValue<bool>("Seed:Enabled");
-if (seed)
-{
-    await app.SeedIdentityAsync();
-}
-
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
-    await PermissionSeeder.SeedAsync(db);
-}
-
-app.UseForwardedHeaders(forwardedOptions);
-
+// Middleware
 app.UseSerilogRequestLogging();
 
-app.UseWebDefaults();
-
-if (!app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment())
 {
-    app.UseHsts();
-    app.UseHttpsRedirection();
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
+app.UseSession();
+app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.UseRateLimiter();
-
 app.MapControllers();
+// TODO: Add NotificationHub when SignalR is properly configured
+// app.MapHub<NotificationHub>("/hub/notifications");
+app.MapHealthChecks("/health");
 
-// Unauthenticated health for load balancers (optional)
-app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions { Predicate = _ => false });
-app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions());
+// Seed database
+using (var scope = app.Services.CreateScope())
+{
+    var authDb = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
+    await AuthDbContextSeed.SeedAsync(authDb);
+}
 
 app.Run();

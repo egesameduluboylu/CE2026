@@ -3,10 +3,16 @@
 public sealed record AdminUserListItem(
     Guid Id,
     string Email,
+    string? FirstName,
+    string? LastName,
+    string? FullName,
+    string? PhoneNumber,
+    bool IsActive,
     DateTimeOffset CreatedAt,
     bool IsAdmin,
     int FailedLoginCount,
-    DateTimeOffset? LockoutUntil);
+    DateTimeOffset? LockoutUntil,
+    DateTimeOffset? LastLoginAt);
 
 public sealed record PagedResult<T>(
     IReadOnlyList<T> Items,
@@ -23,11 +29,20 @@ public sealed record AdminRefreshTokenItem(
 public sealed record AdminUserDetail(
     Guid Id,
     string Email,
+    string? FirstName,
+    string? LastName,
+    string? FullName,
+    string? PhoneNumber,
+    string? AvatarUrl,
+    bool IsActive,
     DateTimeOffset CreatedAt,
     bool IsAdmin,
     int FailedLoginCount,
     DateTimeOffset? LockoutUntil,
-    DateTimeOffset? LastFailedLoginAt);
+    DateTimeOffset? LastFailedLoginAt,
+    DateTimeOffset? LastLoginAt,
+    string? LastLoginIp,
+    string? LastLoginUserAgent);
 
 public sealed record AdminUserDetailResponse(
     AdminUserDetail User,

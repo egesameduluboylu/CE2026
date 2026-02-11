@@ -39,7 +39,7 @@ public sealed class AuthService : IAuthService
         _db.Users.Add(user);
         await _db.SaveChangesAsync(ct);
 
-        return new RegisterResponse(user.Id, user.Email);
+        return new RegisterResponse(user.Id.ToString(), user.Email);
     }
 
     public async Task<LoginResult> LoginAsync(LoginRequest req, AuthAuditContext audit, CancellationToken ct = default)
@@ -59,16 +59,36 @@ public sealed class AuthService : IAuthService
             throw new UnauthorizedAuthException("Invalid credentials.");
         }
 
-        // ba�ar�l� login -> lockout/fail saya�lar�n� temizle
+        // Check if user has 2FA enabled (temporarily disabled for testing)
+        // var tfaToken = await _db.UserTfaTokens.FirstOrDefaultAsync(x => x.UserId == user.Id && x.IsEnabled, ct);
+        // if (tfaToken != null)
+        // {
+        //     // Return a special result indicating 2FA is required
+        //     return new LoginResult(null, null, true, user.Id); // 2FA required
+        // }
+
+        // ba�ar�l� login -> lockout/fail saya�lar�n� temizle ve login bilgilerini güncelle
         if (user.FailedLoginCount != 0 || user.LockoutUntil != null || user.LastFailedLoginAt != null)
         {
             user.FailedLoginCount = 0;
             user.LockoutUntil = null;
             user.LastFailedLoginAt = null;
-            await _db.SaveChangesAsync(ct);
         }
 
-        var access = _tokens.CreateAccessToken(user.Id, user.Email, user.IsAdmin);
+        // Login bilgilerini güncelle
+        user.LastLoginAt = DateTimeOffset.UtcNow;
+        user.LastLoginIp = audit.IpAddress;
+        user.LastLoginUserAgent = audit.UserAgent;
+        await _db.SaveChangesAsync(ct);
+
+        // Fetch user permissions for JWT claims
+        var permissions = await _db.UserRoles
+            .Where(ur => ur.UserId == user.Id)
+            .Join(_db.RolePermissions, ur => ur.RoleId, rp => rp.RoleId, (ur, rp) => rp.PermissionKey)
+            .Distinct()
+            .ToArrayAsync(ct);
+
+        var access = _tokens.CreateAccessToken(user.Id.ToString(), user.Email, user.IsAdmin, permissions);
 
         var (rawRefresh, refreshHash) = _tokens.CreateRefreshToken();
         var refreshDays = _cfg.GetValue<int>("Jwt:RefreshTokenDays", 14);
@@ -83,7 +103,7 @@ public sealed class AuthService : IAuthService
         _db.RefreshTokens.Add(rt);
         await _db.SaveChangesAsync(ct);
 
-        return new LoginResult(access, rawRefresh);
+        return new LoginResult(access, rawRefresh, false);
     }
 
     public async Task<RefreshResult> RefreshAsync(string refreshTokenRaw, AuthAuditContext audit, CancellationToken ct = default)
@@ -114,7 +134,6 @@ public sealed class AuthService : IAuthService
 
         var newToken = new RefreshToken
         {
-            Id = Guid.NewGuid(),
             UserId = token.UserId,
             TokenHash = newHash,
             ExpiresAt = now.AddDays(refreshDays),
@@ -133,7 +152,14 @@ public sealed class AuthService : IAuthService
             throw new UnauthorizedAuthException("Refresh token reuse detected. Please login again.");
         }
 
-        var access = _tokens.CreateAccessToken(token.User.Id, token.User.Email, token.User.IsAdmin);
+        // Fetch user permissions for JWT claims
+        var permissions = await _db.UserRoles
+            .Where(ur => ur.UserId == token.UserId)
+            .Join(_db.RolePermissions, ur => ur.RoleId, rp => rp.RoleId, (ur, rp) => rp.PermissionKey)
+            .Distinct()
+            .ToArrayAsync(ct);
+
+        var access = _tokens.CreateAccessToken(token.User.Id.ToString(), token.User.Email, token.User.IsAdmin, permissions);
 
         // Controller res.NewRefreshTokenRaw bekliyor
         return new RefreshResult(access, newRaw);

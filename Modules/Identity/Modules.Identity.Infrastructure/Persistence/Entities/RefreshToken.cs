@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 public class RefreshToken
 {
-    public Guid Id { get; set; }
+    public Guid Id { get; set; } = Guid.NewGuid();
 
     public Guid UserId { get; set; }
     public AppUser User { get; set; } = null!;

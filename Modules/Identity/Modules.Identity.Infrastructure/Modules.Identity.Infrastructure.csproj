@@ -3,11 +3,14 @@
   <ItemGroup>
     <ProjectReference Include="..\Modules.Identity.Contracts\Modules.Identity.Contracts.csproj" />
 	  <ProjectReference Include="..\Modules.Identity.Domain\Modules.Identity.Domain.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks.Abstractions\BuildingBlocks.Abstractions.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks.Infrastructure\BuildingBlocks.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Azure.Identity" Version="1.17.1" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.2" />
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Core" Version="1.2.9" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.2">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
@@ -16,6 +19,7 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.2" />
     <PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" Version="10.0.2" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.2" />
+    <PackageReference Include="MediatR" Version="12.2.0" />
   </ItemGroup>
 
   <PropertyGroup>

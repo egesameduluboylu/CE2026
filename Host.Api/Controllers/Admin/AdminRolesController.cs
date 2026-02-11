@@ -99,6 +99,23 @@ public class AdminRolesController : ControllerBase
         return Ok(ApiResponse.Ok(new RoleListItem(role.Id, role.Name), HttpContext.TraceIdentifier));
     }
 
+    // DELETE role
+    [RequirePermission("roles.write")]
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeleteRole(Guid id, CancellationToken ct)
+    {
+        var role = await _db.Roles.FirstOrDefaultAsync(r => r.Id == id, ct);
+        if (role is null) return NotFound();
+
+        var perms = await _db.RolePermissions.Where(x => x.RoleId == id).ToListAsync(ct);
+        _db.RolePermissions.RemoveRange(perms);
+        var urs = await _db.UserRoles.Where(x => x.RoleId == id).ToListAsync(ct);
+        _db.UserRoles.RemoveRange(urs);
+        _db.Roles.Remove(role);
+        await _db.SaveChangesAsync(ct);
+        return Ok(ApiResponse.Ok(new { deleted = true }, HttpContext.TraceIdentifier));
+    }
+
     // SET role permissions (replace)
     [RequirePermission("roles.write")]
     [HttpPut("{id:guid}/permissions")]
@@ -140,6 +157,7 @@ public class AdminRolesController : ControllerBase
     [HttpGet("~/api/admin/users/{userId:guid}/roles")]
     public async Task<IActionResult> GetUserRoles(Guid userId, CancellationToken ct)
     {
+     
         var roleIds = await _db.UserRoles
             .Where(ur => ur.UserId == userId)
             .Select(ur => ur.RoleId)
@@ -153,7 +171,7 @@ public class AdminRolesController : ControllerBase
     [HttpPut("~/api/admin/users/{userId:guid}/roles")]
     public async Task<IActionResult> SetUserRoles(Guid userId, SetUserRolesRequest req, CancellationToken ct)
     {
-        var desired = (req.RoleIds ?? Array.Empty<Guid>()).Distinct().ToArray();
+        var desired = (req.RoleIds).Distinct().ToArray();
 
         // validate roles exist
         var valid = await _db.Roles.Where(r => desired.Contains(r.Id)).Select(r => r.Id).ToArrayAsync(ct);

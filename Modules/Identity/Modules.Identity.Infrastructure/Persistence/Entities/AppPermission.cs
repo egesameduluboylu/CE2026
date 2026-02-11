@@ -1,12 +1,14 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using BuildingBlocks.Abstractions.Domain;
 
-namespace Modules.Identity.Infrastructure.Persistence.Entities;
-
-public class AppPermission
+namespace Modules.Identity.Infrastructure.Persistence.Entities
 {
-    [MaxLength(200)]
-    public string Key { get; set; } = default!; // "users.read"
+    public class AppPermission : BaseEntity
+    {
+        [MaxLength(200)]
+        public string Key { get; set; } = default!; // "users.read"
 
-    [MaxLength(256)]
-    public string? Description { get; set; }
+        [MaxLength(256)]
+        public string? Description { get; set; }
+    }
 }

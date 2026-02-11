@@ -3,6 +3,7 @@ using Microsoft.IdentityModel.Tokens;
 using Modules.Identity.Application;
 using Modules.Identity.Infrastructure;
 using Modules.Identity.Infrastructure.Configuration;
+using Modules.Identity.Infrastructure.Auth;
 using System.Text;
 
 namespace Host.Api.Modules.Identity;
@@ -42,6 +43,15 @@ public static class IdentityModule
         services.AddAuthorization(options =>
         {
             options.AddPolicy("admin", p => p.RequireRole("admin"));
+
+            // Register each permission as a policy named "perm:{key}"
+            foreach (var perm in Permissions.All)
+            {
+                options.AddPolicy($"perm:{perm}", policy =>
+                {
+                    policy.RequireClaim("permission", perm);
+                });
+            }
         });
 
         return services;
