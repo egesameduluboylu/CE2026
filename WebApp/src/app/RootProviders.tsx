@@ -1,4 +1,4 @@
-import { Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { ThemeProvider } from "@/shared/theme/ThemeProvider";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 
@@ -10,11 +10,26 @@ import { Toaster } from "sonner";
 import { GlobalApiErrorToast } from "@/components/GlobalApiErrorToast";
 import { GlobalApiSuccessToast } from "@/components/GlobalApiSuccessToast";
 
+const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password"];
+
 function AuthGate({ children }: { children: React.ReactNode }) {
-  const { isLoading } = useAuth();
+  const { isLoading, user } = useAuth();
+  const { pathname } = useLocation();
+
   if (isLoading) {
     return <div className="p-6 text-sm text-muted-foreground">Loading…</div>;
   }
+
+  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+
+  if (!user && !isPublic) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user && isPublic) {
+    return <Navigate to="/" replace />;
+  }
+
   return <>{children}</>;
 }
 

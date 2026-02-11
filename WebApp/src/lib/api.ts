@@ -1,4 +1,4 @@
-const API_BASE = "/api";
+const API_BASE = import.meta.env.VITE_API_BASE || "/api";
 
 export type ApiResponse<T> = { data: T; traceId?: string };
 
@@ -153,14 +153,17 @@ if (!res.ok) {
   const text = await res.text();
   const { errorCode, message, raw } = parseProblem(text);
 
-  window.dispatchEvent(
-    new CustomEvent("api:error", {
-      detail: {
-        code: errorCode ?? "common.unexpected_error",
-        status: res.status,
-      },
-    })
-  );
+  // Don't show error toast for auth/refresh (boot silently fails)
+  if (path !== "/auth/refresh") {
+    window.dispatchEvent(
+      new CustomEvent("api:error", {
+        detail: {
+          code: errorCode ?? "common.unexpected_error",
+          status: res.status,
+        },
+      })
+    );
+  }
 
   const err = new Error(errorCode ?? message ?? `HTTP ${res.status}`);
 

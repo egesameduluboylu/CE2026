@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getApi } from "@/lib/api";
 import { Page } from "@/shared/components/Page";
 import { PermissionGuard } from "@/shared/auth/PermissionGuard";
+import { useAppTranslation } from "@/hooks/useTranslation";
 
 type EventItem = {
   id: number;
@@ -17,6 +18,7 @@ type EventItem = {
 type Page = { items: EventItem[]; total: number; page: number; pageSize: number };
 
 export function SecurityEvents() {
+  const { t } = useAppTranslation();
   const [type, setType] = useState('');
   const [page, setPage] = useState(1);
   const pageSize = 50;
@@ -35,11 +37,11 @@ export function SecurityEvents() {
 
   return (
     <PermissionGuard permission="audit.read">
-      <Page title="Security events" description="Raw security event feed">
-        {isLoading && <div className="text-sm text-muted-foreground">Loading…</div>}
+      <Page title={t("pages.security_events.title")} description={t("descriptions.security_events")}>
+        {isLoading && <div className="text-sm text-muted-foreground">{t("common.loading")}</div>}
         {error && (
           <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-            {String(error)}
+            {t("common.error")}
           </div>
         )}
       <div className="mb-4 flex gap-4 items-center">
@@ -48,7 +50,7 @@ export function SecurityEvents() {
           onChange={(e) => { setType(e.target.value); setPage(1); }}
           className="rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-zinc-900 dark:text-zinc-100"
         >
-          <option value="">All types</option>
+          <option value="">{t("pages.security_events.all_types")}</option>
           <option value="LOGIN_SUCCESS">LOGIN_SUCCESS</option>
           <option value="LOGIN_FAIL">LOGIN_FAIL</option>
           <option value="LOCKOUT">LOCKOUT</option>

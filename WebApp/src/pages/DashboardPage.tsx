@@ -1,62 +1,129 @@
-import { getApi } from "@/lib/api";
-import { useEffect, useState } from "react";
+import React from "react";
+import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
-type DashboardStats = {
-  users: number;
-  activeSessions: number;
-  failedLogins24h: number;
-  lockedUsers: number;
-};
+export default function DashboardPage() {
+  const { t } = useTranslation();
 
-export function DashboardPage() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ["dashboard-stats"],
+    queryFn: async () => {
+      const response = await fetch("/api/dashboard/stats");
+      if (!response.ok) throw new Error("Failed to fetch stats");
+      return response.json();
+    },
+  });
 
-  useEffect(() => {
-    let mounted = true;
-    getApi<DashboardStats>("/admin/stats")
-      .then((r) => mounted && setStats(r.data))
-      .catch((e) => mounted && setErr(e instanceof Error ? e.message : "Failed"))
-      .finally(() => {});
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  const cards = [
-    { label: "Users", value: stats?.users ?? "—" },
-    { label: "Active sessions", value: stats?.activeSessions ?? "—" },
-    { label: "Failed logins (24h)", value: stats?.failedLogins24h ?? "—" },
-    { label: "Locked users", value: stats?.lockedUsers ?? "—" },
-  ];
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg">{t("common.loading")}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">Dashboard</h1>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">Quick overview of identity/security.</p>
+        <h1 className="text-3xl font-bold">{t("pages.dashboard")}</h1>
+        <p className="text-gray-600">{t("descriptions.dashboard")}</p>
       </div>
 
-      {err && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
-          {err}
-        </div>
-      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">{t("stats.total_users")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats?.totalUsers || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              {t("stats.users_growth", { growth: "+12%" })}
+            </p>
+          </CardContent>
+        </Card>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {cards.map((c) => (
-          <div key={c.label} className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
-            <div className="text-xs text-zinc-500 dark:text-zinc-400">{c.label}</div>
-            <div className="mt-2 text-2xl font-semibold text-zinc-900 dark:text-zinc-100">{c.value}</div>
-          </div>
-        ))}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">{t("stats.total_tenants")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats?.totalTenants || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              {t("stats.tenants_growth", { growth: "+5%" })}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">{t("stats.total_api_keys")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats?.totalApiKeys || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              {t("stats.api_keys_growth", { growth: "+8%" })}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">{t("stats.total_webhooks")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats?.totalWebhooks || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              {t("stats.webhooks_growth", { growth: "+15%" })}
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
-        <div className="font-semibold text-zinc-900 dark:text-zinc-100">Next</div>
-        <div className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-          Buraya “son security event’ler”, “rate limit hits”, “refresh reuse detection” gibi kartlar gelecek.
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("dashboard.recent_activity")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {stats?.recentActivity?.map((activity: any, index: number) => (
+                <div key={index} className="flex items-center space-x-4">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{activity.title}</p>
+                    <p className="text-xs text-gray-500">{activity.timestamp}</p>
+                  </div>
+                </div>
+              )) || (
+                <p className="text-gray-500">{t("dashboard.no_recent_activity")}</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("dashboard.quick_actions")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <Button variant="outline" className="w-full justify-start">
+                {t("dashboard.add_user")}
+              </Button>
+              <Button variant="outline" className="w-full justify-start">
+                {t("dashboard.create_api_key")}
+              </Button>
+              <Button variant="outline" className="w-full justify-start">
+                {t("dashboard.setup_webhook")}
+              </Button>
+              <Button variant="outline" className="w-full justify-start">
+                {t("dashboard.view_audit_logs")}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

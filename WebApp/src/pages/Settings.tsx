@@ -1,7 +1,9 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { getTokenStorage, setTokenStorage, type TokenStorage } from '@/lib/auth';
+import { useAppTranslation } from '@/hooks/useTranslation';
 
 export function Settings() {
+  const { t } = useAppTranslation();
   const { setToken } = useAuth();
   const current = getTokenStorage();
 
@@ -18,11 +20,11 @@ export function Settings() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100 mb-4">Settings</h1>
+      <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100 mb-4">{t("pages.settings")}</h1>
       <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 max-w-md">
-        <h2 className="font-medium text-zinc-900 dark:text-zinc-100 mb-2">Token storage</h2>
+        <h2 className="font-medium text-zinc-900 dark:text-zinc-100 mb-2">{t("pages.settings.token_storage")}</h2>
         <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
-          Where to keep the access token. Memory is default; sessionStorage survives refresh but not new tab.
+          {t("pages.settings.token_storage_description")}
         </p>
         <div className="flex gap-4">
           <label className="flex items-center gap-2">
@@ -33,7 +35,7 @@ export function Settings() {
               onChange={() => handleStorageChange('memory')}
               className="rounded"
             />
-            <span className="text-sm">Memory</span>
+            <span className="text-sm">{t("pages.settings.memory")}</span>
           </label>
           <label className="flex items-center gap-2">
             <input
@@ -43,7 +45,7 @@ export function Settings() {
               onChange={() => handleStorageChange('sessionStorage')}
               className="rounded"
             />
-            <span className="text-sm">sessionStorage</span>
+            <span className="text-sm">{t("pages.settings.session_storage")}</span>
           </label>
         </div>
       </div>

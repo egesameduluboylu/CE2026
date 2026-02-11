@@ -1,11 +1,15 @@
 import { Outlet, NavLink } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { NotificationDropdown } from "@/components/Notifications/NotificationDropdown";
 
 const nav = [
   { to: "/dashboard", label: "Overview" },
   { to: "/dashboard/users", label: "Users" },
   { to: "/dashboard/sessions", label: "Sessions" },
+  { to: "/dashboard/notifications", label: "Notifications" },
+  { to: "/dashboard/background-jobs", label: "Background Jobs" },
+  { to: "/dashboard/error-dashboard", label: "Error Dashboard" },
   { to: "/dashboard/settings", label: "Settings" },
 ];
 
@@ -76,6 +80,7 @@ export function DashboardLayout() {
             </div>
 
             <div className="flex items-center gap-2">
+              <NotificationDropdown />
               <div className="hidden text-xs text-muted-foreground sm:block">
                 JWT + Refresh rotation enabled
               </div>
