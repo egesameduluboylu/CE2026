@@ -1,9 +1,9 @@
 import { useState } from "react";
+import { useI18n } from "@/i18n/provider";
 import { useQuery } from "@tanstack/react-query";
 import { getApi } from "@/lib/api";
 import { Page } from "@/shared/components/Page";
 import { PermissionGuard } from "@/shared/auth/PermissionGuard";
-import { useAppTranslation } from "@/hooks/useTranslation";
 
 type EventItem = {
   id: number;
@@ -18,7 +18,7 @@ type EventItem = {
 type Page = { items: EventItem[]; total: number; page: number; pageSize: number };
 
 export function SecurityEvents() {
-  const { t } = useAppTranslation();
+  const { t } = useI18n();
   const [type, setType] = useState('');
   const [page, setPage] = useState(1);
   const pageSize = 50;

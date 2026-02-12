@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuth } from '@/contexts/AuthContext';
+import { useI18n } from '@/i18n/provider';
 
 const schema = z
   .object({
@@ -18,6 +19,7 @@ const schema = z
 type FormData = z.infer<typeof schema>;
 
 export function Register() {
+  const { t } = useI18n();
   const { registerUser } = useAuth(); // ✅ AuthContext içinde bu fonksiyon olmalı
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);

@@ -48,4 +48,4 @@ public sealed record AdminUserDetailResponse(
     AdminUserDetail User,
     IReadOnlyList<AdminRefreshTokenItem> RefreshTokens);
 
-public sealed record RevokeTokensResponse(int Revoked);
+public sealed record RevokeTokensResponse(int RevokedCount);

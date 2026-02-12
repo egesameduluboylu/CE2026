@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.Authorization;
 using Modules.Identity.Application;
 using Modules.Identity.Infrastructure;
 using Modules.Identity.Infrastructure.Configuration;
 using Modules.Identity.Infrastructure.Auth;
+using BuildingBlocks.Security.Authorization;
 using System.Text;
 
 namespace Host.Api.Modules.Identity;
@@ -43,6 +45,7 @@ public static class IdentityModule
         services.AddAuthorization(options =>
         {
             options.AddPolicy("admin", p => p.RequireRole("admin"));
+            options.AddPolicy("AdminOnly", p => p.RequireRole("admin"));
 
             // Register each permission as a policy named "perm:{key}"
             foreach (var perm in Permissions.All)
@@ -53,6 +56,9 @@ public static class IdentityModule
                 });
             }
         });
+
+        // Register permission authorization handler
+        services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
         return services;
     }

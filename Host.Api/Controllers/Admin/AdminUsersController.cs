@@ -24,7 +24,6 @@ public class AdminUsersController : ControllerBase
         _db = db;
     }
 
-    [RequirePermission("users.read")]
     [HttpGet("users")]
     public async Task<IActionResult> GetUsers([FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
     {

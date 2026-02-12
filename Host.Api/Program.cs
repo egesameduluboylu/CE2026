@@ -2,6 +2,7 @@ using System.Text;
 using Serilog;
 using Modules.Identity.Infrastructure.Persistence;
 using Host.Api.Modules.Identity;
+using Host.Api.Middleware;
 
 // Set UTF-8 encoding
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
@@ -49,6 +50,10 @@ builder.Services.AddControllers();
 // HttpContextAccessor for UserContext
 builder.Services.AddHttpContextAccessor();
 
+// Custom Middleware
+builder.Services.AddTransient<GlobalExceptionHandler>();
+builder.Services.AddTransient<RequestLoggingMiddleware>();
+
 // SignalR
 builder.Services.AddSignalR();
 
@@ -66,7 +71,9 @@ builder.Services.AddHealthChecks()
 var app = builder.Build();
 
 // Middleware
+app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseSerilogRequestLogging();
+app.UseMiddleware<GlobalExceptionHandler>();
 
 if (app.Environment.IsDevelopment())
 {

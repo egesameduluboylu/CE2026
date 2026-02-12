@@ -78,5 +78,8 @@ public static class AuthDbContextSeed
             });
             await db.SaveChangesAsync(ct);
         }
+
+        // 6) Seed I18n resources
+        await I18nSeedData.SeedAsync(db);
     }
 }

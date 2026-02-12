@@ -86,6 +86,9 @@ namespace Modules.Identity.Infrastructure
             
             // Register user context service for audit trail
             services.AddScoped<IUserContext, UserContextService>();
+            
+            // Add memory cache for I18n
+            services.AddMemoryCache();
 
             return services;
         }

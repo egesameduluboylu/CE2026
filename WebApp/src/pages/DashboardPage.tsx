@@ -1,18 +1,17 @@
-import React from "react";
-import { useTranslation } from "react-i18next";
+import { useI18n } from "@/i18n/provider";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { getApi } from "@/lib/api";
 
 export default function DashboardPage() {
-  const { t } = useTranslation();
+  const { t } = useI18n();
 
   const { data: stats, isLoading } = useQuery({
     queryKey: ["dashboard-stats"],
     queryFn: async () => {
-      const response = await fetch("/api/dashboard/stats");
-      if (!response.ok) throw new Error("Failed to fetch stats");
-      return response.json();
+      const response = await getApi("/dashboard/stats");
+      return response.data as any;
     },
   });
 
@@ -37,7 +36,7 @@ export default function DashboardPage() {
             <CardTitle className="text-sm font-medium">{t("stats.total_users")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalUsers || 0}</div>
+            <div className="text-2xl font-bold">{stats?.users?.total || 0}</div>
             <p className="text-xs text-muted-foreground">
               {t("stats.users_growth", { growth: "+12%" })}
             </p>

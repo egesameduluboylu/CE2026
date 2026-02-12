@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using BuildingBlocks.Abstractions.Domain;
 using BuildingBlocks.Infrastructure.Persistence;
 using Modules.Identity.Infrastructure.Persistence.Entities;
+using Modules.Identity.Infrastructure.Persistence.Configurations;
 
 namespace Modules.Identity.Infrastructure.Persistence;
 
@@ -37,10 +38,14 @@ public class AuthDbContext : DbContext
     public DbSet<BackgroundJob> BackgroundJobs => Set<BackgroundJob>();
     public DbSet<BackgroundJobLog> BackgroundJobLogs => Set<BackgroundJobLog>();
     public DbSet<SecurityEvent> SecurityEvents => Set<SecurityEvent>();
+    public DbSet<I18nResource> I18nResources => Set<I18nResource>();
+    public DbSet<Setting> Settings => Set<Setting>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        
+        modelBuilder.ApplyConfiguration(new I18nResourceConfiguration());
     }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)

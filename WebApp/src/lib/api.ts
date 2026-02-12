@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE || "/api";
+const API_BASE = "http://localhost:5001/api";
 
 export type ApiResponse<T> = { data: T; traceId?: string };
 
@@ -27,7 +27,12 @@ export type ApiFetchOptions = RequestInit & {
 };
 
 /** i18n culture (tr-TR / en-GB) */
-import { getCulture } from "../i18n"; // <-- yolunu düzelt
+import { detectLanguage } from "@/i18n/utils";
+
+function getCulture(): string {
+  const lang = detectLanguage();
+  return lang === 'tr-TR' ? 'tr' : 'en';
+}
 
 /**
  * Refresh lock:

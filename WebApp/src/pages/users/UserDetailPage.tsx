@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { getApi, postApi } from "@/lib/api";
+import { useI18n } from "@/i18n/provider";
 import { Page } from "@/shared/components/Page";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +38,7 @@ function fmt(iso?: string | null) {
 }
 
 export function UserDetailPage() {
+  const { t } = useI18n();
   const { id } = useParams<{ id: string }>();
   const qc = useQueryClient();
 

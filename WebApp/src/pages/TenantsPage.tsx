@@ -1,9 +1,10 @@
-import { useTranslation } from "react-i18next";
+import { useI18n } from "@/i18n/provider";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { getApi, deleteApi } from "@/lib/api";
 import {
   Table,
   TableBody,
@@ -21,25 +22,21 @@ import {
 import { MoreHorizontal, Edit, Trash2, Building, Users } from "lucide-react";
 
 export default function TenantsPage() {
-  const { t } = useTranslation();
+  const { t } = useI18n();
   const queryClient = useQueryClient();
 
   const { data: tenants, isLoading } = useQuery({
     queryKey: ["tenants"],
     queryFn: async () => {
-      const response = await fetch("/api/admin/tenants");
-      if (!response.ok) throw new Error("Failed to fetch tenants");
-      return response.json();
+      const response = await getApi("/admin/tenants");
+      return response.data as any;
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (tenantId: string) => {
-      const response = await fetch(`/api/admin/tenants/${tenantId}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) throw new Error("Failed to delete tenant");
-      return response.json();
+      const response = await deleteApi(`/admin/tenants/${tenantId}`);
+      return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tenants"] });
@@ -54,8 +51,8 @@ export default function TenantsPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">{t("pages.tenants")}</h1>
-          <p className="text-gray-600">{t("descriptions.tenants")}</p>
+          <h1 className="text-3xl font-bold">{t("tenants.title")}</h1>
+          <p className="text-gray-600">{t("tenants.description")}</p>
         </div>
         <Button>{t("tenants.create_tenant")}</Button>
       </div>

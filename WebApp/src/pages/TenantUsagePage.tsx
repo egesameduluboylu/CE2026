@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams, useNavigate } from "react-router-dom";
 import { getApi } from "@/lib/api";
+import { useI18n } from "@/i18n/provider";
 import { Page } from "@/shared/components/Page";
 import { PermissionGuard } from "@/shared/auth/PermissionGuard";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { ArrowLeft, BarChart3 } from "lucide-react";
 type DailyUsage = { date: string; apiCalls: number };
 
 export function TenantUsagePage() {
+  const { t } = useI18n();
   const { tenantId } = useParams<{ tenantId: string }>();
   const navigate = useNavigate();
 

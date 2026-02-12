@@ -1,9 +1,10 @@
-import { useTranslation } from "react-i18next";
+import { useI18n } from "@/i18n/provider";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { getApi, deleteApi } from "@/lib/api";
 import {
   Table,
   TableBody,
@@ -21,25 +22,21 @@ import {
 import { MoreHorizontal, Edit, Trash2, Shield, Users } from "lucide-react";
 
 export default function RolesPage() {
-  const { t } = useTranslation();
+  const { t } = useI18n();
   const queryClient = useQueryClient();
 
   const { data: roles, isLoading } = useQuery({
     queryKey: ["roles"],
     queryFn: async () => {
-      const response = await fetch("/api/admin/roles");
-      if (!response.ok) throw new Error("Failed to fetch roles");
-      return response.json();
+      const response = await getApi("/admin/roles");
+      return response.data as any;
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (roleId: string) => {
-      const response = await fetch(`/api/admin/roles/${roleId}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) throw new Error("Failed to delete role");
-      return response.json();
+      const response = await deleteApi(`/admin/roles/${roleId}`);
+      return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["roles"] });

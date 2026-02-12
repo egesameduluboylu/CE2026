@@ -1,21 +1,22 @@
-import { useTranslation } from "react-i18next";
-import { getCulture, setCulture, type SupportedCulture } from "../i18n";
+import { useI18n } from "@/i18n/provider";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function LanguageSwitcher() {
-  const { t } = useTranslation();
-  const current = getCulture();
+  const { lang, setLanguage } = useI18n();
 
   const onChange = async (v: string) => {
-    await setCulture(v as SupportedCulture);
+    await setLanguage(v);
   };
 
   return (
-    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-      <span>{t("app.language")}:</span>
-      <select value={current} onChange={(e) => onChange(e.target.value)}>
-        <option value="tr-TR">TR</option>
-        <option value="en-GB">EN</option>
-      </select>
-    </div>
+    <Select value={lang} onValueChange={onChange}>
+      <SelectTrigger className="w-[120px]">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="tr-TR">🇹🇷 TR</SelectItem>
+        <SelectItem value="en-US">🇺🇸 EN</SelectItem>
+      </SelectContent>
+    </Select>
   );
 }

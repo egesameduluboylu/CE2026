@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getApi, postApi, putApi, deleteApi } from "@/lib/api";
+import { useI18n } from "@/i18n/provider";
 import { Page } from "@/shared/components/Page";
 import { PermissionGuard } from "@/shared/auth/PermissionGuard";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ type Usage = {
 };
 
 export default function RateLimitPage() {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);

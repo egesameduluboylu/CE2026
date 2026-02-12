@@ -1,5 +1,6 @@
 ﻿using BuildingBlocks.Security.Authorization;
 using BuildingBlocks.Web;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Modules.Identity.Contracts.Admin.Roles;
@@ -10,6 +11,7 @@ namespace Host.Api.Controllers.Admin;
 
 [ApiController]
 [Route("api/admin/roles")]
+[Authorize(Policy = "admin")]
 public class AdminRolesController : ControllerBase
 {
     private readonly AuthDbContext _db;
@@ -17,7 +19,6 @@ public class AdminRolesController : ControllerBase
     public AdminRolesController(AuthDbContext db) => _db = db;
 
     // LIST roles
-    [RequirePermission("roles.read")]
     [HttpGet]
     public async Task<IActionResult> GetRoles(CancellationToken ct)
     {
@@ -30,7 +31,6 @@ public class AdminRolesController : ControllerBase
     }
 
     // LIST permissions catalog
-    [RequirePermission("roles.read")]
     [HttpGet("permissions")]
     public async Task<IActionResult> GetPermissions(CancellationToken ct)
     {
@@ -43,7 +43,6 @@ public class AdminRolesController : ControllerBase
     }
 
     // ROLE detail (permissions)
-    [RequirePermission("roles.read")]
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetRole(Guid id, CancellationToken ct)
     {

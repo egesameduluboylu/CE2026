@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getApi } from "@/lib/api";
+import { useI18n } from "@/i18n/provider";
 import { Page } from "@/shared/components/Page";
 import { PermissionGuard } from "@/shared/auth/PermissionGuard";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ type AuditPageData = {
 };
 
 export function AuditPage() {
+  const { t } = useI18n();
   const [type, setType] = useState("");
   const [email, setEmail] = useState("");
   const [page, setPage] = useState(1);

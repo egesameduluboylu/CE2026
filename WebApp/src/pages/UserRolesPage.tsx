@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useNavigate } from "react-router-dom";
 import { getApi, putApi } from "@/lib/api";
+import { useI18n } from "@/i18n/provider";
 import { Page } from "@/shared/components/Page";
 import { PermissionGuard } from "@/shared/auth/PermissionGuard";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ type Role = { id: string; name: string };
 type UserRole = { userId: string; roleIds: string[] };
 
 export function UserRolesPage() {
+  const { t } = useI18n();
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();

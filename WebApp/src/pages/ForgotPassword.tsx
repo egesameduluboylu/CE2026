@@ -3,6 +3,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { postApi } from "@/lib/api";
+import { useI18n } from "@/i18n/provider";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 export function ForgotPassword() {
+  const { t } = useI18n();
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

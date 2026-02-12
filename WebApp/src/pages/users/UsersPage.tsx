@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { getApi } from "@/lib/api";
+import { useI18n } from "@/i18n/provider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,7 @@ type PageResult = {
 };
 
 export function UsersPage() {
+  const { t } = useI18n();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const pageSize = 20;
@@ -45,14 +47,14 @@ export function UsersPage() {
 
   return (
     <Page
-      title="Users"
-      description="Manage platform users"
+      title={t("pages.users.title")}
+      description={t("pages.users.description")}
       actions={
         <div className="flex gap-2">
           <div className="w-[260px]">
             <Input
               type="search"
-              placeholder="Search by email…"
+              placeholder={t("common.search_placeholder")}
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);

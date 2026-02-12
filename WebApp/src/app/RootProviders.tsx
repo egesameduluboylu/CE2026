@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { ThemeProvider } from "@/shared/theme/ThemeProvider";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { I18nProvider } from "@/i18n/provider";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
@@ -53,15 +54,17 @@ export function RootProviders() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <AuthProvider>
-          <AuthGate>
-            <Outlet />
-          </AuthGate>
+        <I18nProvider>
+          <AuthProvider>
+            <AuthGate>
+              <Outlet />
+            </AuthGate>
 
-          <GlobalApiErrorToast />
-          <GlobalApiSuccessToast />
-          <Toaster richColors position="top-right" />
-        </AuthProvider>
+            <GlobalApiErrorToast />
+            <GlobalApiSuccessToast />
+            <Toaster richColors position="top-right" />
+          </AuthProvider>
+        </I18nProvider>
       </ThemeProvider>
 
       <ReactQueryDevtools initialIsOpen={false} />

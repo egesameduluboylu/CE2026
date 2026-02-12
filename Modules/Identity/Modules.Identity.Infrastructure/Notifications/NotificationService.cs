@@ -68,7 +68,7 @@ public sealed class NotificationService : INotificationService
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(n => new NotificationResponse(
-                n.Id,
+                n.Id.ToString(),
                 n.Type,
                 n.Title,
                 n.Message,
@@ -88,7 +88,7 @@ public sealed class NotificationService : INotificationService
     public async Task<bool> MarkAsReadAsync(string userId, string notificationId, CancellationToken ct = default)
     {
         var notification = await _db.UserNotifications
-            .FirstOrDefaultAsync(n => n.Id == notificationId && n.UserId == userId, ct);
+            .FirstOrDefaultAsync(n => n.Id.ToString() == notificationId && n.UserId == userId, ct);
 
         if (notification == null || notification.IsRead)
             return false;
@@ -137,7 +137,7 @@ public sealed class NotificationService : INotificationService
     public async Task<bool> DeleteNotificationAsync(string userId, string notificationId, CancellationToken ct = default)
     {
         var notification = await _db.UserNotifications
-            .FirstOrDefaultAsync(n => n.Id == notificationId && n.UserId == userId, ct);
+            .FirstOrDefaultAsync(n => n.Id.ToString() == notificationId && n.UserId == userId, ct);
 
         if (notification == null)
             return false;
@@ -185,7 +185,7 @@ public sealed class NotificationService : INotificationService
     private static NotificationResponse MapToResponse(UserNotification notification)
     {
         return new NotificationResponse(
-            notification.Id,
+            notification.Id.ToString(),
             notification.Type,
             notification.Title,
             notification.Message,

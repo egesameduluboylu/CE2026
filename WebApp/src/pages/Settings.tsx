@@ -1,9 +1,9 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { getTokenStorage, setTokenStorage, type TokenStorage } from '@/lib/auth';
-import { useAppTranslation } from '@/hooks/useTranslation';
+import { useI18n } from '@/i18n/provider';
 
 export function Settings() {
-  const { t } = useAppTranslation();
+  const { t } = useI18n();
   const { setToken } = useAuth();
   const current = getTokenStorage();
 

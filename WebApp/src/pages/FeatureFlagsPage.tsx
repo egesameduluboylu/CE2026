@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getApi, postApi, putApi, deleteApi } from "@/lib/api";
+import { useI18n } from "@/i18n/provider";
 import { Page } from "@/shared/components/Page";
 import { PermissionGuard } from "@/shared/auth/PermissionGuard";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ type CreateFlagDto = { key: string; enabled?: boolean; description?: string };
 type UpdateFlagDto = { key?: string; enabled?: boolean; description?: string };
 
 export function FeatureFlagsPage() {
+  const { t } = useI18n();
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [selected, setSelected] = useState<FeatureFlag | null>(null);

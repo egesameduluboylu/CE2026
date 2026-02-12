@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getApi, postApi } from "@/lib/api";
+import { useI18n } from "@/i18n/provider";
 import { Page } from "@/shared/components/Page";
 import { PermissionGuard } from "@/shared/auth/PermissionGuard";
 import { usePermission } from "@/shared/auth/usePermission";
@@ -17,6 +18,7 @@ type SessionItem = {
 };
 
 export function SessionsPage() {
+  const { t } = useI18n();
   const qc = useQueryClient();
   const canWrite = usePermission("sessions.write");
 

@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Modules.Identity.Application.Auth;
 using Modules.Identity.Application.Behaviors;
+using Modules.Identity.Application.Services;
 using Modules.Identity.Infrastructure.Auth;
 using System.Reflection;
 
@@ -17,6 +18,7 @@ public static class DependencyInjection
         services.AddValidatorsFromAssembly(assembly);
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<II18nService, I18nService>();
 
         return services;
     }

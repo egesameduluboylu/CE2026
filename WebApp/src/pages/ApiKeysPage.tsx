@@ -1,9 +1,10 @@
-import { useTranslation } from "react-i18next";
+import { useI18n } from "@/i18n/provider";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { getApi, deleteApi } from "@/lib/api";
 import {
   Table,
   TableBody,
@@ -18,28 +19,24 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Edit, Trash2, Shield, Key } from "lucide-react";
+import { MoreHorizontal, Edit, Trash2, Key } from "lucide-react";
 
 export default function ApiKeysPage() {
-  const { t } = useTranslation();
+  const { t } = useI18n();
   const queryClient = useQueryClient();
 
   const { data: apiKeys, isLoading } = useQuery({
     queryKey: ["api-keys"],
     queryFn: async () => {
-      const response = await fetch("/api/admin/api-keys");
-      if (!response.ok) throw new Error("Failed to fetch API keys");
-      return response.json();
+      const response = await getApi("/admin/api-keys");
+      return response.data as any;
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (keyId: string) => {
-      const response = await fetch(`/api/admin/api-keys/${keyId}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) throw new Error("Failed to delete API key");
-      return response.json();
+      const response = await deleteApi(`/admin/api-keys/${keyId}`);
+      return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["api-keys"] });

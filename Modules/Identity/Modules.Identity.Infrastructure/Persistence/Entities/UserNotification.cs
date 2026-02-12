@@ -2,7 +2,7 @@ namespace Modules.Identity.Infrastructure.Persistence.Entities;
 
 public class UserNotification
 {
-    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public Guid Id { get; set; } = Guid.NewGuid();
     public string UserId { get; set; } = string.Empty;
     
     /// <summary>
@@ -36,11 +36,6 @@ public class UserNotification
     public bool IsRead { get; set; } = false;
     
     /// <summary>
-    /// When notification was created
-    /// </summary>
-    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
-    
-    /// <summary>
     /// When notification was read
     /// </summary>
     public DateTimeOffset? ReadAt { get; set; }
@@ -54,6 +49,16 @@ public class UserNotification
     /// Additional metadata (JSON)
     /// </summary>
     public string? Metadata { get; set; }
+
+    // BaseEntity properties
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; }
+    public string? CreatedBy { get; set; }
+    public string? UpdatedBy { get; set; }
+    public bool IsDeleted { get; set; } = false;
+    public DateTime? DeletedAt { get; set; }
+    public string? DeletedBy { get; set; }
+    public bool IsActive { get; set; } = true;
 
     // Navigation property
     public AppUser User { get; set; } = null!;
